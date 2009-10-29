@@ -17,7 +17,9 @@ void win_destroy_callback()
 extern int serial_init(gchar*name);
 extern int serial_run( void (*setdata)(unsigned char *data));
 extern void serial_set_trigger_level(unsigned char trig);
+extern void serial_set_holdoff(unsigned char holdoff);
 
+unsigned char current_trigger_level = 0;
 
 void mysetdata(unsigned char *data)
 {
@@ -25,10 +27,19 @@ void mysetdata(unsigned char *data)
 
 }
 
-gboolean scale_changed(GtkWidget *widget)
+gboolean trigger_level_changed(GtkWidget *widget)
 {
 	int l = (int)gtk_range_get_value(GTK_RANGE(widget));
 	serial_set_trigger_level(l & 0xff);
+	current_trigger_level=l&0xff;
+	scope_display_set_trigger_level(image,l&0xff);
+	return TRUE;
+}
+
+gboolean holdoff_level_changed(GtkWidget *widget)
+{
+	int l = (int)gtk_range_get_value(GTK_RANGE(widget));
+	serial_set_holdoff(l & 0xff);
 
 	return TRUE;
 }
@@ -56,13 +67,19 @@ int main(int argc,char **argv)
 
 	hbox = gtk_hbox_new(FALSE,4);
 	gtk_box_pack_start(GTK_BOX(vbox),hbox,TRUE,TRUE,0);
-	gtk_box_pack_start(GTK_BOX(hbox),gtk_label_new("Ai"),TRUE,TRUE,0);
-
+	gtk_box_pack_start(GTK_BOX(hbox),gtk_label_new("Trigger level:"),TRUE,TRUE,0);
 	GtkWidget *scale=gtk_hscale_new_with_range(0,255,1);
-
 	gtk_box_pack_start(GTK_BOX(hbox),scale,TRUE,TRUE,0);
+	g_signal_connect(G_OBJECT(scale),"value-changed",G_CALLBACK(&trigger_level_changed),NULL);
 
-	g_signal_connect(G_OBJECT(scale),"value-changed",G_CALLBACK(&scale_changed),NULL);
+	hbox = gtk_hbox_new(FALSE,4);
+	gtk_box_pack_start(GTK_BOX(vbox),hbox,TRUE,TRUE,0);
+	gtk_box_pack_start(GTK_BOX(hbox),gtk_label_new("Holdoff samples:"),TRUE,TRUE,0);
+	scale=gtk_hscale_new_with_range(0,255,1);
+	gtk_box_pack_start(GTK_BOX(hbox),scale,TRUE,TRUE,0);
+	g_signal_connect(G_OBJECT(scale),"value-changed",G_CALLBACK(&holdoff_level_changed),NULL);
+
+
 
 	scope_display_set_data(image,data,sizeof(data));
 

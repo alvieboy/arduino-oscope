@@ -18,23 +18,22 @@ GtkWidget *scope_display_new (void)
 static void draw(GtkWidget *scope, cairo_t *cr)
 {
 	ScopeDisplay *self = SCOPE_DISPLAY(scope);
-	double x, y;
 	int i;
-	x = scope->allocation.x + scope->allocation.width / 2;
-	y = scope->allocation.y + scope->allocation.height / 2;
+	int lx=scope->allocation.x;
+	int ly=scope->allocation.y+scope->allocation.height;
 
-	double radius;
-	radius = MIN (scope->allocation.width / 2,
-				  scope->allocation.height / 2) - 5;
+	cairo_set_source_rgb (cr, 0, 0, 0xff);
 
-/*	cairo_arc (cr, x, y, radius, 0, 2 * M_PI);
-  */
+	cairo_move_to(cr,lx,ly - self->tlevel);
+    cairo_line_to(cr,lx + scope->allocation.width,ly - self->tlevel);
+	/*	cairo_arc (cr, x, y, radius, 0, 2 * M_PI);
+	 */
+	cairo_stroke(cr);
+
 	cairo_set_source_rgb (cr, 0, 0, 0);
 //	cairo_fill_preserve (cr);
 	//	cairo_set_source_rgb (cr, 0, 0, 0);
 
-	int lx=scope->allocation.x;
-	int ly=scope->allocation.y+scope->allocation.height;
 
 	for (i=0; i<512; i++) {
 		cairo_move_to(cr,lx,ly);
@@ -56,6 +55,14 @@ void scope_display_set_data(GtkWidget *scope, unsigned char *data, size_t size)
 		self->dbuf[i] = *data;
 		data++;
 	}
+	gtk_widget_queue_draw(scope);
+}
+
+void scope_display_set_trigger_level(GtkWidget *scope, unsigned char level)
+{
+	ScopeDisplay *self = SCOPE_DISPLAY(scope);
+
+	self->tlevel=level;
 	gtk_widget_queue_draw(scope);
 }
 

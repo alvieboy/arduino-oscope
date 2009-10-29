@@ -12,6 +12,7 @@ static int fd = -1;
 #define COMMAND_GET_VERSION   0x40
 #define COMMAND_START_SAMPLING   0x41
 #define COMMAND_SET_TRIGGER   0x42
+#define COMMAND_SET_HOLDOFF  0x43
 #define COMMAND_VERSION_REPLY 0x80
 #define COMMAND_BUFFER_SEG1   0x81
 #define COMMAND_BUFFER_SEG2   0x82
@@ -205,6 +206,11 @@ void loop()
 void serial_set_trigger_level(unsigned char trig)
 {
 	send_packet(COMMAND_SET_TRIGGER,&trig,1);
+}
+
+void serial_set_holdoff(unsigned char holdoff)
+{
+	send_packet(COMMAND_SET_HOLDOFF,&holdoff,1);
 }
 
 int init(char *device)

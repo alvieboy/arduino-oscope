@@ -11,6 +11,7 @@ struct _ScopeDisplay
 	GtkDrawingArea parent;
 	/* private */
 	unsigned char dbuf[512];
+	unsigned char tlevel;
 };
 
 struct _ScopeDisplayClass
@@ -27,5 +28,6 @@ struct _ScopeDisplayClass
 
 GtkWidget *scope_display_new (void);
 void scope_display_set_data(GtkWidget *scope, unsigned char *data, size_t size);
+void scope_display_set_trigger_level(GtkWidget *scope, unsigned char level);
 
 #endif

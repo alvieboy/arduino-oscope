@@ -24,6 +24,7 @@ enum state {
 #define COMMAND_GET_VERSION   0x40
 #define COMMAND_START_SAMPLING   0x41
 #define COMMAND_SET_TRIGGER   0x42
+#define COMMAND_SET_HOLDOFF  0x43
 #define COMMAND_VERSION_REPLY 0x80
 #define COMMAND_BUFFER_SEG1   0x81
 #define COMMAND_BUFFER_SEG2   0x82
@@ -41,6 +42,9 @@ unsigned char dataBufferReady;
 
 unsigned char triggerLevel=0;
 unsigned char triggerFlags=0;
+unsigned char autoTrigSamples = 100;
+unsigned char holdoffSamples = 0;
+
 
 #define TRIGGER_FLAG_AUTO 1
 
@@ -50,21 +54,24 @@ const int ledPin = 13;
 
 #define BIT(x) (1<<x)
 
+boolean startConversion=false;
+boolean conversionDone=false;
+
+
 void setup_adc()
 {
     ADCSRA = 0;
     ADCSRB = 0; // Free-running mode
    // DIDR0 = ~1; // Enable only first analog input
     ADMUX = 0xF0; // internal 1.1v reference, left-aligned, channel 0
+	PRR &= ~BIT(PRADC);
 }
 
 void start_sampling()
 {
-	dataBufferPtr = 0;
-	dataBufferReady=0;
-	triggered=0;
 	sei();
-	PRR &= ~BIT(PRADC);
+	conversionDone=false;
+	startConversion=true;
 	ADCSRA = BIT(ADIE)|BIT(ADEN)|BIT(ADSC)|BIT(ADATE)|BIT(ADPS0)|BIT(ADPS1)|BIT(ADPS2); // Start conversion, enable autotrigger
 }
 
@@ -114,6 +121,10 @@ void process_packet(unsigned char command, unsigned char *buf, unsigned char siz
 		break;
 	case COMMAND_SET_TRIGGER:
 		triggerLevel = buf[0];
+		break;
+
+	case COMMAND_SET_HOLDOFF:
+		holdoffSamples = buf[0];
 		break;
 	default:
 		send_packet(COMMAND_ERROR,NULL,0);
@@ -178,49 +189,80 @@ void loop() {
 	if (Serial.available()>0) {
 		bIn =  Serial.read();
 		process(bIn & 0xff);
-	} else if (dataBufferReady) {
+	} else if (conversionDone) {
+        conversionDone=false;
 		send_packet(COMMAND_BUFFER_SEG1, dataBuffer, 255);
 		send_packet(COMMAND_BUFFER_SEG2, dataBuffer+256, 255);
 #if 0
 		send_packet(COMMAND_BUFFER_SEG3, dataBuffer+512, 255);
 		send_packet(COMMAND_BUFFER_SEG4, dataBuffer+768, 255);
 #endif
-		dataBufferReady=0;
 	} else {
 	}
 }
 
 #define TRIGGER_NOISE_LEVEL 10
 
+
 ISR(ADC_vect)
 {
 	static unsigned char last=0;
 	static unsigned char autoTrigCount=0;
+	static boolean do_store_data;
+	static unsigned char holdoff;
+
+	if (holdoff>0) {
+		holdoff--;
+        return;
+	}
 
 	if (triggerLevel>0) {
 
-		if (autoTrigCount>100) {
+		if (autoTrigCount >= autoTrigSamples ) {
 			triggered=1;
 		} else {
 			if (ADCH>last && (ADCH>triggerLevel) && ( (ADCH-last) > TRIGGER_NOISE_LEVEL)) {
-				digitalWrite(ledPin,1);
 				triggered=1;
 			} else {
-				digitalWrite(ledPin,0);
 				autoTrigCount++;
 			}
-            last=ADCH;
+			last=ADCH;
 		}
 	} else {
 		triggered=1;
 	}
+
 	if (triggered) {
-		dataBuffer[dataBufferPtr++] = ADCH;
+
+		if (startConversion && dataBufferPtr==0) {
+            do_store_data=true;
+			digitalWrite(ledPin,1);
+
+		}
+
+		if (do_store_data) {
+			dataBuffer[dataBufferPtr] = ADCH;
+		}
+		dataBufferPtr++;
+
 		if (dataBufferPtr>sizeof(dataBuffer)) {
-			ADCSRA &= ~(BIT(ADIE)|BIT(ADEN));
-			dataBufferReady = 1;
+
+			/* End of this conversion. Perform holdoff if needed */
+			if (do_store_data) {
+				conversionDone = true;
+				startConversion = false;
+			}
+
+			if (conversionDone)
+				digitalWrite(ledPin,0);
+
+			do_store_data=false;
+
+			//dataBufferReady = 1;
 			triggered=0;
-            autoTrigCount=0;
+            holdoff=holdoffSamples;
+			autoTrigCount=0;
+			dataBufferPtr=0;
 		}
 	}
 }
