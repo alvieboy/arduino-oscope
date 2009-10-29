@@ -1,17 +1,17 @@
-all: display 
+all: oscope
 
 CFLAGS=$(shell pkg-config --cflags gtk+-2.0 cairo-xlib) -Wall -Werror
 LIBS=$(shell pkg-config --libs gtk+-2.0)
 
 
-serial-2:  serial-2.o 
-	$(CC) -o serial-2 $+ $(LIBS)
+serial:  serial.o 
+	$(CC) -o serial $+ $(LIBS)
 
-display: display.o scope.o serial-2.o
-	$(CC) -o display $+ $(LIBS)
+oscope: display.o scope.o serial.o
+	$(CC) -o oscope $+ $(LIBS)
 
 clean:
-	rm -f *.o display 
+	rm -f *.o oscope serial
 	
 # DO NOT DELETE
 

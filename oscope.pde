@@ -1,3 +1,21 @@
+/*
+ * Copyright (c) 2009 Alvaro Lopes <alvieboy@alvie.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ */
+
 #include <avr/io.h>
 #include <avr/power.h>
 #include <avr/interrupt.h>
@@ -20,42 +38,35 @@ enum state {
 #define MAX_PACKET_SIZE 6
 
 /* Serial commands we support */
-#define COMMAND_PING 0x3E
-#define COMMAND_GET_VERSION   0x40
-#define COMMAND_START_SAMPLING   0x41
-#define COMMAND_SET_TRIGGER   0x42
-#define COMMAND_SET_HOLDOFF  0x43
-#define COMMAND_VERSION_REPLY 0x80
-#define COMMAND_BUFFER_SEG1   0x81
-#define COMMAND_BUFFER_SEG2   0x82
-#define COMMAND_BUFFER_SEG3   0x83
-#define COMMAND_BUFFER_SEG4   0x84
-#define COMMAND_PONG 0xE3
-#define COMMAND_ERROR 0xFF
+#define COMMAND_PING           0x3E
+#define COMMAND_GET_VERSION    0x40
+#define COMMAND_START_SAMPLING 0x41
+#define COMMAND_SET_TRIGGER    0x42
+#define COMMAND_SET_HOLDOFF    0x43
+#define COMMAND_VERSION_REPLY  0x80
+#define COMMAND_BUFFER_SEG1    0x81
+#define COMMAND_BUFFER_SEG2    0x82
+#define COMMAND_BUFFER_SEG3    0x83
+#define COMMAND_BUFFER_SEG4    0x84
+#define COMMAND_PONG           0xE3
+#define COMMAND_ERROR          0xFF
 
 
 #define NUM_SAMPLES 512
 
 unsigned char dataBuffer[NUM_SAMPLES];
 unsigned short dataBufferPtr;
-unsigned char dataBufferReady;
-
 unsigned char triggerLevel=0;
 unsigned char triggerFlags=0;
 unsigned char autoTrigSamples = 100;
 unsigned char holdoffSamples = 0;
-
-
-#define TRIGGER_FLAG_AUTO 1
-
-int triggered;
-
-const int ledPin = 13;
+boolean triggered;
+boolean startConversion=false;
+boolean conversionDone=false;
 
 #define BIT(x) (1<<x)
 
-boolean startConversion=false;
-boolean conversionDone=false;
+const int ledPin = 13;
 
 
 void setup_adc()
@@ -258,7 +269,6 @@ ISR(ADC_vect)
 
 			do_store_data=false;
 
-			//dataBufferReady = 1;
 			triggered=0;
             holdoff=holdoffSamples;
 			autoTrigCount=0;
