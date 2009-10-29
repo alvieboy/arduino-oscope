@@ -1,0 +1,4 @@
+applet/*
+*~
+UI/*.o
+UI/display
