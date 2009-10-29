@@ -18,6 +18,7 @@
 
 #include <gtk/gtk.h>
 #include "scope.h"
+#include "serial.h"
 
 GtkWidget *window;
 GdkPixbuf *pixbuf;
@@ -31,11 +32,6 @@ void win_destroy_callback()
 {
 	gtk_main_quit();
 }
-
-extern int serial_init(gchar*name);
-extern int serial_run( void (*setdata)(unsigned char *data));
-extern void serial_set_trigger_level(unsigned char trig);
-extern void serial_set_holdoff(unsigned char holdoff);
 
 unsigned char current_trigger_level = 0;
 

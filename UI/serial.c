@@ -22,6 +22,7 @@
 #include <malloc.h>
 #include <glib.h>
 #include <string.h>
+#include "serial.h"
 
 static int fd = -1;
 
