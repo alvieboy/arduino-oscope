@@ -24,6 +24,7 @@ G_DEFINE_TYPE (ScopeDisplay, scope_display, GTK_TYPE_DRAWING_AREA);
 
 static void scope_display_init (ScopeDisplay *scope)
 {
+	scope->zoom=1;
 }
 
 GtkWidget *scope_display_new (void)
@@ -53,9 +54,9 @@ static void draw(GtkWidget *scope, cairo_t *cr)
 	//	cairo_set_source_rgb (cr, 0, 0, 0);
 
 
-	for (i=0; i<512; i++) {
+	for (i=0; i<512/self->zoom; i++) {
 		cairo_move_to(cr,lx,ly);
-		lx=scope->allocation.x + i;
+		lx=scope->allocation.x + i*self->zoom;
 		ly=scope->allocation.y+scope->allocation.height - self->dbuf[i];
 		cairo_line_to(cr,lx,ly);
 
@@ -63,6 +64,12 @@ static void draw(GtkWidget *scope, cairo_t *cr)
 	cairo_stroke (cr);
 }
 
+void scope_display_set_zoom(GtkWidget *scope, unsigned int zoom)
+{
+	ScopeDisplay *self = SCOPE_DISPLAY(scope);
+	self->zoom=zoom;
+	gtk_widget_queue_draw(scope);
+}
 
 void scope_display_set_data(GtkWidget *scope, unsigned char *data, size_t size)
 {

@@ -76,6 +76,8 @@ void setup_adc()
 	// DIDR0 = ~1; // Enable only first analog input
 	ADMUX = 0xF0; // internal 1.1v reference, left-aligned, channel 0
 	PRR &= ~BIT(PRADC);
+	ADCSRA = BIT(ADIE)|BIT(ADEN)|BIT(ADSC)|BIT(ADATE)|/*BIT(ADPS0)|*/BIT(ADPS1)|BIT(ADPS2); // Start conversion, enable autotrigger
+
 }
 
 void start_sampling()
@@ -83,7 +85,6 @@ void start_sampling()
 	sei();
 	conversionDone=false;
 	startConversion=true;
-	ADCSRA = BIT(ADIE)|BIT(ADEN)|BIT(ADSC)|BIT(ADATE)|BIT(ADPS0)|BIT(ADPS1)|BIT(ADPS2); // Start conversion, enable autotrigger
 }
 
 void adc_set_frequency(unsigned char divider)
@@ -212,7 +213,7 @@ void loop() {
 	}
 }
 
-#define TRIGGER_NOISE_LEVEL 10
+#define TRIGGER_NOISE_LEVEL 1
 
 
 ISR(ADC_vect)
@@ -227,21 +228,27 @@ ISR(ADC_vect)
 		return;
 	}
 
-	if (triggerLevel>0) {
+	if (triggered==0 && triggerLevel>0) {
 
+#ifdef AUTOTRIGGER
 		if (autoTrigCount >= autoTrigSamples ) {
 			triggered=1;
 		} else {
-			if (ADCH>last && (ADCH>triggerLevel) && ( (ADCH-last) > TRIGGER_NOISE_LEVEL)) {
+#endif
+			//if (last<=triggerLevel && ADCH>last && (ADCH>triggerLevel) && ( (ADCH-last) > TRIGGER_NOISE_LEVEL)) {
+			if (ADCH>=triggerLevel) {
 				triggered=1;
 			} else {
 				autoTrigCount++;
 			}
-			last=ADCH;
+#ifdef AUTOTRIGGER
 		}
+#endif
 	} else {
 		triggered=1;
 	}
+
+	last=ADCH;
 
 	if (triggered) {
 

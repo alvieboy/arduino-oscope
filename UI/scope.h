@@ -30,6 +30,7 @@ struct _ScopeDisplay
 	/* private */
 	unsigned char dbuf[512];
 	unsigned char tlevel;
+	unsigned int zoom;
 };
 
 struct _ScopeDisplayClass
@@ -47,5 +48,6 @@ struct _ScopeDisplayClass
 GtkWidget *scope_display_new (void);
 void scope_display_set_data(GtkWidget *scope, unsigned char *data, size_t size);
 void scope_display_set_trigger_level(GtkWidget *scope, unsigned char level);
+void scope_display_set_zoom(GtkWidget *scope, unsigned int zoom);
 
 #endif
