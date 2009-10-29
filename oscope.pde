@@ -71,10 +71,10 @@ const int ledPin = 13;
 
 void setup_adc()
 {
-    ADCSRA = 0;
-    ADCSRB = 0; // Free-running mode
-   // DIDR0 = ~1; // Enable only first analog input
-    ADMUX = 0xF0; // internal 1.1v reference, left-aligned, channel 0
+	ADCSRA = 0;
+	ADCSRB = 0; // Free-running mode
+	// DIDR0 = ~1; // Enable only first analog input
+	ADMUX = 0xF0; // internal 1.1v reference, left-aligned, channel 0
 	PRR &= ~BIT(PRADC);
 }
 
@@ -201,7 +201,7 @@ void loop() {
 		bIn =  Serial.read();
 		process(bIn & 0xff);
 	} else if (conversionDone) {
-        conversionDone=false;
+		conversionDone=false;
 		send_packet(COMMAND_BUFFER_SEG1, dataBuffer, 255);
 		send_packet(COMMAND_BUFFER_SEG2, dataBuffer+256, 255);
 #if 0
@@ -224,7 +224,7 @@ ISR(ADC_vect)
 
 	if (holdoff>0) {
 		holdoff--;
-        return;
+		return;
 	}
 
 	if (triggerLevel>0) {
@@ -246,7 +246,7 @@ ISR(ADC_vect)
 	if (triggered) {
 
 		if (startConversion && dataBufferPtr==0) {
-            do_store_data=true;
+			do_store_data=true;
 			digitalWrite(ledPin,1);
 
 		}
@@ -270,7 +270,7 @@ ISR(ADC_vect)
 			do_store_data=false;
 
 			triggered=0;
-            holdoff=holdoffSamples;
+			holdoff=holdoffSamples;
 			autoTrigCount=0;
 			dataBufferPtr=0;
 		}

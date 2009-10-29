@@ -19,7 +19,6 @@
 #include <gtk/gtk.h>
 #include "scope.h"
 #include "serial.h"
-
 GtkWidget *window;
 GdkPixbuf *pixbuf;
 GtkWidget *image;
