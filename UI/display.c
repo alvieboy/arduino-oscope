@@ -121,12 +121,25 @@ gboolean vref_changed(GtkWidget *widget)
 	return TRUE;
 }
 
+int help(char*cmd)
+{
+	printf("Usage: %s serialport\n\n",cmd);
+	printf("  example: %s /dev/ttyUSB0\n\n",cmd);
+	return -1;
+}
+
 int main(int argc,char **argv)
 {
 	GtkWidget*scale_zoom;
 	gtk_init(&argc,&argv);
 	unsigned char data[512];
-	serial_init(argv[1]);
+
+	if (argc<2)
+		return help(argv[0]);
+
+	if (serial_init(argv[1])<0)
+		return -1;
+
 	window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
 
 
