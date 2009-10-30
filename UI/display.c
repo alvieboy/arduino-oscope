@@ -31,6 +31,11 @@ GtkWidget *hbox;
 cairo_surface_t *surface;
 cairo_t *cr;
 
+GtkWidget *scale_trigger;
+GtkWidget *scale_holdoff;
+GtkWidget *combo_prescaler;
+GtkWidget *combo_vref;
+
 void win_destroy_callback()
 {
 	gtk_main_quit();
@@ -41,8 +46,29 @@ unsigned char current_trigger_level = 0;
 void mysetdata(unsigned char *data)
 {
 	scope_display_set_data(image,data,512);
-
 }
+
+void scope_got_parameters(unsigned char triggerLevel,
+						  unsigned char holdoffSamples,
+						  unsigned char adcref,
+						  unsigned char prescale)
+{
+	gtk_range_set_value(GTK_RANGE(scale_trigger),triggerLevel);
+	gtk_range_set_value(GTK_RANGE(scale_holdoff),holdoffSamples);
+
+	switch(adcref) {
+	case 0:
+	case 1:
+		gtk_combo_box_set_active(GTK_COMBO_BOX(combo_vref),adcref);
+		break;
+	case 3:
+	default:
+		gtk_combo_box_set_active(GTK_COMBO_BOX(combo_vref),2);
+	}
+
+	gtk_combo_box_set_active(GTK_COMBO_BOX(combo_prescaler),7-prescale);
+}
+
 
 gboolean trigger_level_changed(GtkWidget *widget)
 {
@@ -97,7 +123,7 @@ gboolean vref_changed(GtkWidget *widget)
 
 int main(int argc,char **argv)
 {
-	GtkWidget*scale;
+	GtkWidget*scale_zoom;
 	gtk_init(&argc,&argv);
 	unsigned char data[512];
 	serial_init(argv[1]);
@@ -113,9 +139,9 @@ int main(int argc,char **argv)
 
 	gtk_container_add(GTK_CONTAINER(window),hbox);
 	gtk_box_pack_start(GTK_BOX(hbox),vbox,TRUE,TRUE,0);
-	scale=gtk_vscale_new_with_range(1,64,1);
-	gtk_box_pack_start(GTK_BOX(hbox),scale,TRUE,TRUE,0);
-	g_signal_connect(G_OBJECT(scale),"value-changed",G_CALLBACK(&zoom_changed),NULL);
+	scale_zoom=gtk_vscale_new_with_range(1,64,1);
+	gtk_box_pack_start(GTK_BOX(hbox),scale_zoom,TRUE,TRUE,0);
+	g_signal_connect(G_OBJECT(scale_zoom),"value-changed",G_CALLBACK(&zoom_changed),NULL);
 
 	image = scope_display_new();
 
@@ -124,43 +150,42 @@ int main(int argc,char **argv)
 	hbox = gtk_hbox_new(FALSE,4);
 	gtk_box_pack_start(GTK_BOX(vbox),hbox,TRUE,TRUE,0);
 	gtk_box_pack_start(GTK_BOX(hbox),gtk_label_new("Trigger level:"),TRUE,TRUE,0);
-	scale=gtk_hscale_new_with_range(0,255,1);
-	gtk_box_pack_start(GTK_BOX(hbox),scale,TRUE,TRUE,0);
-	g_signal_connect(G_OBJECT(scale),"value-changed",G_CALLBACK(&trigger_level_changed),NULL);
+	scale_trigger=gtk_hscale_new_with_range(0,255,1);
+	gtk_box_pack_start(GTK_BOX(hbox),scale_trigger,TRUE,TRUE,0);
+	g_signal_connect(G_OBJECT(scale_trigger),"value-changed",G_CALLBACK(&trigger_level_changed),NULL);
 
 	hbox = gtk_hbox_new(FALSE,4);
 	gtk_box_pack_start(GTK_BOX(vbox),hbox,TRUE,TRUE,0);
 	gtk_box_pack_start(GTK_BOX(hbox),gtk_label_new("Holdoff samples:"),TRUE,TRUE,0);
-	scale=gtk_hscale_new_with_range(0,255,1);
-	gtk_box_pack_start(GTK_BOX(hbox),scale,TRUE,TRUE,0);
-	g_signal_connect(G_OBJECT(scale),"value-changed",G_CALLBACK(&holdoff_level_changed),NULL);
+	scale_holdoff=gtk_hscale_new_with_range(0,255,1);
+	gtk_box_pack_start(GTK_BOX(hbox),scale_holdoff,TRUE,TRUE,0);
+	g_signal_connect(G_OBJECT(scale_holdoff),"value-changed",G_CALLBACK(&holdoff_level_changed),NULL);
 
 	hbox = gtk_hbox_new(FALSE,4);
 	gtk_box_pack_start(GTK_BOX(vbox),hbox,TRUE,TRUE,0);
 	gtk_box_pack_start(GTK_BOX(hbox),gtk_label_new("Prescaler:"),TRUE,TRUE,0);
-	scale=gtk_combo_box_new_text();
-	gtk_box_pack_start(GTK_BOX(hbox),scale,TRUE,TRUE,0);
-	g_signal_connect(G_OBJECT(scale),"changed",G_CALLBACK(&prescaler_changed),NULL);
+	combo_prescaler=gtk_combo_box_new_text();
+	gtk_box_pack_start(GTK_BOX(hbox),combo_prescaler,TRUE,TRUE,0);
+	g_signal_connect(G_OBJECT(combo_prescaler),"changed",G_CALLBACK(&prescaler_changed),NULL);
 
-	gtk_combo_box_append_text(GTK_COMBO_BOX(scale),"128");
-	gtk_combo_box_append_text(GTK_COMBO_BOX(scale),"64");
-	gtk_combo_box_append_text(GTK_COMBO_BOX(scale),"32");
-	gtk_combo_box_append_text(GTK_COMBO_BOX(scale),"16");
-	gtk_combo_box_append_text(GTK_COMBO_BOX(scale),"8");
-	gtk_combo_box_append_text(GTK_COMBO_BOX(scale),"4");
-	gtk_combo_box_append_text(GTK_COMBO_BOX(scale),"2");
-	gtk_combo_box_set_active(GTK_COMBO_BOX(scale),0);
+	gtk_combo_box_append_text(GTK_COMBO_BOX(combo_prescaler),"128");
+	gtk_combo_box_append_text(GTK_COMBO_BOX(combo_prescaler),"64");
+	gtk_combo_box_append_text(GTK_COMBO_BOX(combo_prescaler),"32");
+	gtk_combo_box_append_text(GTK_COMBO_BOX(combo_prescaler),"16");
+	gtk_combo_box_append_text(GTK_COMBO_BOX(combo_prescaler),"8");
+	gtk_combo_box_append_text(GTK_COMBO_BOX(combo_prescaler),"4");
+	gtk_combo_box_append_text(GTK_COMBO_BOX(combo_prescaler),"2");
 
 	hbox = gtk_hbox_new(FALSE,4);
 	gtk_box_pack_start(GTK_BOX(vbox),hbox,TRUE,TRUE,0);
 	gtk_box_pack_start(GTK_BOX(hbox),gtk_label_new("VRef source:"),TRUE,TRUE,0);
-	scale=gtk_combo_box_new_text();
-	gtk_box_pack_start(GTK_BOX(hbox),scale,TRUE,TRUE,0);
-	g_signal_connect(G_OBJECT(scale),"changed",G_CALLBACK(&vref_changed),NULL);
+	combo_vref=gtk_combo_box_new_text();
+	gtk_box_pack_start(GTK_BOX(hbox),combo_vref,TRUE,TRUE,0);
+	g_signal_connect(G_OBJECT(combo_vref),"changed",G_CALLBACK(&vref_changed),NULL);
 
-	gtk_combo_box_append_text(GTK_COMBO_BOX(scale),"AREF");
-	gtk_combo_box_append_text(GTK_COMBO_BOX(scale),"AVcc");
-	gtk_combo_box_append_text(GTK_COMBO_BOX(scale),"Internal 1.1V");
+	gtk_combo_box_append_text(GTK_COMBO_BOX(combo_vref),"AREF");
+	gtk_combo_box_append_text(GTK_COMBO_BOX(combo_vref),"AVcc");
+	gtk_combo_box_append_text(GTK_COMBO_BOX(combo_vref),"Internal 1.1V");
 
 	scope_display_set_data(image,data,sizeof(data));
 

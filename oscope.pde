@@ -60,8 +60,8 @@ byte flags;
 
 const int ledPin = 13;
 
-static byte prescale = BIT(ADPS0)|BIT(ADPS1)|BIT(ADPS2);
-static byte adcref = 0x3; // Default internal 1.1 vref
+unsigned char prescale = BIT(ADPS0)|BIT(ADPS1)|BIT(ADPS2);
+unsigned char adcref = 0x3; // Default internal 1.1 vref
 
 void setup_adc()
 {
@@ -144,6 +144,13 @@ void process_packet(unsigned char command, unsigned char *buf, unsigned short si
 	case COMMAND_SET_PRESCALER:
 		prescale = buf[0] & 0x7;
         setup_adc();
+		break;
+	case COMMAND_GET_PARAMETERS:
+		buf[0] = triggerLevel;
+		buf[1] = holdoffSamples;
+		buf[2] = adcref;
+		buf[3] = prescale;
+		send_packet(COMMAND_PARAMETERS_REPLY, buf, 4);
 		break;
 	case COMMAND_SET_TRIGINVERT:
 		if (buf[0]==0) {

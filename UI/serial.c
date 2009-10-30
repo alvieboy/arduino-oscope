@@ -17,6 +17,7 @@
  */
 
 #include <termios.h>
+#include <unistd.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <malloc.h>
@@ -24,6 +25,7 @@
 #include <string.h>
 #include "serial.h"
 #include "../protocol.h"
+
 static int fd = -1;
 
 GIOChannel *channel;
@@ -34,6 +36,11 @@ GMainLoop *loo;
 #endif
 
 static void (*sdata)(unsigned char *data);
+
+extern void scope_got_parameters(unsigned char triggerLevel,
+								 unsigned char holdoffSamples,
+								 unsigned char adcref,
+								 unsigned char prescale);
 
 void sendchar(int i) {
 	char t = i &0xff;
@@ -80,6 +87,7 @@ enum packetstate {
 enum mystate {
 	PING,
 	GETVERSION,
+	GETPARAMETERS,
 	SAMPLING
 };
 
@@ -87,9 +95,6 @@ static enum mystate state = PING;
 
 void process_packet(unsigned char command, unsigned char *buf, unsigned short size)
 {
-	//	printf("Got packet %d state %d\n",command,state);
-	unsigned char trig = 0x80;
-
 	switch(state) {
 	case PING:
 		if (command==COMMAND_PONG) {
@@ -102,15 +107,21 @@ void process_packet(unsigned char command, unsigned char *buf, unsigned short si
 	case GETVERSION:
 		if (command==COMMAND_VERSION_REPLY) {
 			printf("Got version: OSCOPE %d.%d\n", buf[0],buf[1]);
-			send_packet(COMMAND_SET_TRIGGER,&trig,1);
-			send_packet(COMMAND_START_SAMPLING,NULL,0);
-			state=SAMPLING;
+			send_packet(COMMAND_GET_PARAMETERS,NULL,0);
+			state=GETPARAMETERS;
 		} else {
 			printf("Invalid packet %d\n",command);
 		}
 		break;
-	case SAMPLING:
+	case GETPARAMETERS:
+		
+		scope_got_parameters(buf[0],buf[1],buf[2],buf[3]);
+		send_packet(COMMAND_START_SAMPLING,NULL,0);
 
+		state = SAMPLING;
+		break;
+
+	case SAMPLING:
 		sdata(buf);
 		send_packet(COMMAND_START_SAMPLING,NULL,0);
 		state=SAMPLING;
@@ -220,7 +231,14 @@ int init(char *device)
 	}
 
 	tcgetattr(fd, &termset);
-	cfmakeraw(&termset);
+
+	termset.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP
+						 | INLCR | IGNCR | ICRNL | IXON);
+	termset.c_oflag &= ~OPOST;
+	termset.c_lflag &= ~(ECHO | ECHONL | ICANON | ISIG | IEXTEN);
+	termset.c_cflag &= ~(CSIZE | PARENB);
+	termset.c_cflag |= CS8;
+
 	cfsetospeed(&termset,B115200);
 	cfsetispeed(&termset,B115200);
 
@@ -245,17 +263,19 @@ int init(char *device)
 	if ((watcher=g_io_add_watch(channel, G_IO_IN, &serial_data_ready, NULL))<0) {
 		fprintf(stderr,"Cannot add watch\n");
 	}
-    fprintf(stderr,"Channel set up OK\n");
+    //fprintf(stderr,"Channel set up OK\n");
 	return 0;
 
 }
 void serial_set_prescaler(unsigned char prescaler)
 {
+	// printf("Setting PRESCALE %d\n", prescaler);
 	send_packet(COMMAND_SET_PRESCALER,&prescaler,1);
 }
 
 void serial_set_vref(unsigned char vref)
 {
+	//	printf("Setting VREF %d\n", vref);
 	send_packet(COMMAND_SET_VREF,&vref,1);
 }
 
@@ -266,6 +286,7 @@ int serial_run( void (*setdata)(unsigned char *data))
 	loop();
 	return 0;
 }
+
 #ifdef STANDALONE
 int main(int argc,char**argv)
 {
