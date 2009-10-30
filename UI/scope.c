@@ -59,7 +59,9 @@ static void draw(GtkWidget *scope, cairo_t *cr)
 		lx=scope->allocation.x + i*self->zoom;
 		ly=scope->allocation.y+scope->allocation.height - self->dbuf[i];
 		cairo_line_to(cr,lx,ly);
-
+		if (i==511) {
+			printf("%d\n", self->dbuf[i]);
+		}
 	}
 	cairo_stroke (cr);
 }
@@ -74,8 +76,8 @@ void scope_display_set_zoom(GtkWidget *scope, unsigned int zoom)
 void scope_display_set_data(GtkWidget *scope, unsigned char *data, size_t size)
 {
 	ScopeDisplay *self = SCOPE_DISPLAY(scope);
-	
-    int i;
+
+	int i;
 	for (i=0; i<size && i<512; i++) {
 		self->dbuf[i] = *data;
 		data++;

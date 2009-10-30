@@ -19,6 +19,7 @@
 #include <avr/io.h>
 #include <avr/power.h>
 #include <avr/interrupt.h>
+#include "protocol.h"
 
 #define BAUD_RATE 115200
 
@@ -29,6 +30,7 @@
 /* Serial processor state */
 enum state {
 	SIZE,
+	SIZE2,
 	COMMAND,
 	PAYLOAD,
 	CKSUM
@@ -36,22 +38,6 @@ enum state {
 
 /* Maximum packet size we can receive from serial. We can however transmit more than this */
 #define MAX_PACKET_SIZE 6
-
-/* Serial commands we support */
-#define COMMAND_PING           0x3E
-#define COMMAND_GET_VERSION    0x40
-#define COMMAND_START_SAMPLING 0x41
-#define COMMAND_SET_TRIGGER    0x42
-#define COMMAND_SET_HOLDOFF    0x43
-#define COMMAND_VERSION_REPLY  0x80
-#define COMMAND_BUFFER_SEG1    0x81
-#define COMMAND_BUFFER_SEG2    0x82
-#define COMMAND_BUFFER_SEG3    0x83
-#define COMMAND_BUFFER_SEG4    0x84
-#define COMMAND_PONG           0xE3
-#define COMMAND_ERROR          0xFF
-
-
 #define NUM_SAMPLES 512
 
 unsigned char dataBuffer[NUM_SAMPLES];
@@ -101,12 +87,17 @@ void setup()
 	sei();
 }
 
-void send_packet(unsigned char command, unsigned char *buf, unsigned char size)
+void send_packet(unsigned char command, unsigned char *buf, unsigned short size)
 {
 	unsigned char cksum=command;
-	unsigned char i;
-	cksum^=(unsigned char)size;
-	Serial.write(size);
+	unsigned short i;
+
+	cksum^= (size>>8);
+	cksum^= (size&0xff);
+
+	Serial.write(size&0xff);
+	Serial.write((size>>8)&0xff);
+
 	Serial.write(command);
 	for (i=0;i<size;i++) {
 		cksum^=buf[i];
@@ -116,7 +107,7 @@ void send_packet(unsigned char command, unsigned char *buf, unsigned char size)
 }
 
 
-void process_packet(unsigned char command, unsigned char *buf, unsigned char size)
+void process_packet(unsigned char command, unsigned char *buf, unsigned short size)
 {
 	switch (command) {
 	case COMMAND_PING:
@@ -150,7 +141,7 @@ void process(unsigned char bIn)
 	static unsigned char pBuf[MAX_PACKET_SIZE];
 	static unsigned char cksum;
 	static unsigned int pBufPtr;
-	static unsigned char pSize;
+	static unsigned short pSize;
 	static unsigned char command;
 
 	static enum state st = SIZE;
@@ -160,14 +151,19 @@ void process(unsigned char bIn)
 
 	switch(st) {
 	case SIZE:
+		pSize = bIn;
+		cksum = bIn;
+		st = SIZE2;
+		break;
+
+	case SIZE2:
+		pSize += ((unsigned short)bIn<<16);
 		if (bIn>MAX_PACKET_SIZE)
 			break;
-		pSize = bIn;
 		pBufPtr = 0;
-		cksum = bIn;
-
 		st = COMMAND;
 		break;
+
 	case COMMAND:
 
 		command = bIn;
@@ -203,12 +199,7 @@ void loop() {
 		process(bIn & 0xff);
 	} else if (conversionDone) {
 		conversionDone=false;
-		send_packet(COMMAND_BUFFER_SEG1, dataBuffer, 255);
-		send_packet(COMMAND_BUFFER_SEG2, dataBuffer+256, 255);
-#if 0
-		send_packet(COMMAND_BUFFER_SEG3, dataBuffer+512, 255);
-		send_packet(COMMAND_BUFFER_SEG4, dataBuffer+768, 255);
-#endif
+		send_packet(COMMAND_BUFFER_SEG, dataBuffer, 512);
 	} else {
 	}
 }

@@ -23,21 +23,8 @@
 #include <glib.h>
 #include <string.h>
 #include "serial.h"
-
+#include "../protocol.h"
 static int fd = -1;
-
-/* Serial commands we support */
-#define COMMAND_PING 0x3E
-#define COMMAND_GET_VERSION   0x40
-#define COMMAND_START_SAMPLING   0x41
-#define COMMAND_SET_TRIGGER   0x42
-#define COMMAND_SET_HOLDOFF  0x43
-#define COMMAND_VERSION_REPLY 0x80
-#define COMMAND_BUFFER_SEG1   0x81
-#define COMMAND_BUFFER_SEG2   0x82
-#define COMMAND_PONG 0xE3
-#define COMMAND_ERROR 0xFF
-#define COMMAND_BUFFER_SEG4   0x84
 
 GIOChannel *channel;
 gint watcher;
@@ -55,41 +42,35 @@ void sendchar(int i) {
 	g_io_channel_write_chars(channel,&t,sizeof(t),&written,&error);
 }
 
-void dumpcks(unsigned char c)
-{
-	//unsigned char r;
-	//read(fd,&r,1);
-	//printf("CKS: sent %u recv %u\n",c,r);
-}
-void send_packet(unsigned char command, unsigned char *buf, unsigned char size)
+void send_packet(unsigned char command, unsigned char *buf, unsigned short size)
 {
 	unsigned char cksum=0;
 	unsigned char i;
 	GError *error = NULL;
 
-	sendchar(size);
-	cksum^=(unsigned char)size;
-	dumpcks(cksum);
+	cksum^=(size>>8);
+	cksum^=(size&0xff);
+
+	sendchar(size&0xff);
+	sendchar(size>>8);
 
 	sendchar(command);
 	cksum^=(unsigned char)command;
-	dumpcks(cksum);
 
 
 	for (i=0;i<size;i++) {
 		cksum^=buf[i];
 		sendchar(buf[i]);
-		dumpcks(cksum);
 	}
 
 	//printf("Sending cksum %u\n",cksum);
 	sendchar(cksum);
-	dumpcks(cksum);
 	g_io_channel_flush(channel,&error);
 }
 
 enum packetstate {
 	SIZE,
+	SIZE2,
 	COMMAND,
 	PAYLOAD,
 	CKSUM
@@ -104,10 +85,7 @@ enum mystate {
 
 static enum mystate state = PING;
 
-static int boff=0;
-static unsigned char outbuf[512];
-
-void process_packet(unsigned char command, unsigned char *buf, unsigned char size)
+void process_packet(unsigned char command, unsigned char *buf, unsigned short size)
 {
 	//	printf("Got packet %d state %d\n",command,state);
 	unsigned char trig = 0x80;
@@ -132,22 +110,12 @@ void process_packet(unsigned char command, unsigned char *buf, unsigned char siz
 		}
 		break;
 	case SAMPLING:
-		{
-			int i;
-			for (i=0;i<size;i++) {
-				outbuf[boff++] = buf[i];
-			 //   printf("%02x",buf[i]);
-			}
-           // printf("\n");
-		}
-		if (command== COMMAND_BUFFER_SEG2) {
-			//memset(outbuf,0,sizeof(outbuf));
-			sdata(outbuf);
-			send_packet(COMMAND_START_SAMPLING,NULL,0);
-			boff=0;
-			state=SAMPLING;
-		}
-        break;
+
+		sdata(buf);
+		send_packet(COMMAND_START_SAMPLING,NULL,0);
+		state=SAMPLING;
+
+		break;
 	default:
 		printf("Invalid packet %d\n",command);
 	}
@@ -155,10 +123,10 @@ void process_packet(unsigned char command, unsigned char *buf, unsigned char siz
 
 void process(unsigned char bIn)
 {
-	static unsigned char pBuf[255];
+	static unsigned char pBuf[1024];
 	static unsigned char cksum;
 	static unsigned int pBufPtr;
-	static unsigned char pSize;
+	static unsigned short pSize;
 	static unsigned char command;
 
 	static enum packetstate st = SIZE;
@@ -168,14 +136,23 @@ void process(unsigned char bIn)
 	switch(st) {
 	case SIZE:
 		pSize = bIn;
-		pBufPtr = 0;
+		printf("S0: %u\n",bIn);
 		cksum = bIn;
-  //  	printf("Size: %u\n",pSize);
-		st = COMMAND;
+		st = SIZE2;
 		break;
+
+	case SIZE2:
+		pSize += (unsigned short)bIn<<8;
+		printf("S1: %u\n",bIn);
+		pBufPtr = 0;
+		st = COMMAND;
+		printf("S+: %u\n",pSize);
+		break;
+
 	case COMMAND:
 
 		command = bIn;
+		printf("CM: %u\n",command);
 		if (pSize>0)
 			st = PAYLOAD;
 		else
@@ -194,7 +171,7 @@ void process(unsigned char bIn)
 		if (cksum==0) {
 			process_packet(command,pBuf,pBufPtr);
 		} else {
-            printf("Packet fails checksum check\n");
+			printf("Packet fails checksum check\n");
 		}
 		st = SIZE;
 	}
