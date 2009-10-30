@@ -44,7 +44,7 @@ unsigned char dataBuffer[NUM_SAMPLES];
 unsigned short dataBufferPtr;
 unsigned char triggerLevel=0;
 unsigned char triggerFlags=0;
-unsigned char autoTrigSamples = 100;
+unsigned short autoTrigSamples = 512;
 unsigned char holdoffSamples = 0;
 
 /* Booleans merged */
@@ -233,7 +233,7 @@ void loop() {
 ISR(ADC_vect)
 {
 	static unsigned char last=0;
-	static unsigned char autoTrigCount=0;
+	static unsigned short autoTrigCount=0;
 	static boolean do_store_data;
 	static unsigned char holdoff;
 

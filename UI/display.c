@@ -21,6 +21,7 @@
 #include "serial.h"
 #include <math.h>
 #include <stdlib.h>
+#include <string.h>
 
 GtkWidget *window;
 GdkPixbuf *pixbuf;
@@ -75,6 +76,22 @@ gboolean prescaler_changed(GtkWidget *widget)
 	int base = (int)log2((double)atoi(c));
 	//printf("Prescale: 0x%x\n",base);
 	serial_set_prescaler(base);
+	return TRUE;
+}
+gboolean vref_changed(GtkWidget *widget)
+{
+	unsigned char base;
+	gchar *c = gtk_combo_box_get_active_text(GTK_COMBO_BOX(widget));
+
+	/* Ugly :) */
+	if (!strcmp(c,"AREF")) {
+		base=0;
+	} else if (!strcmp(c,"AVcc")) {
+		base=1;
+	} else {
+		base = 3;
+	}
+	serial_set_vref(base);
 	return TRUE;
 }
 
@@ -133,6 +150,17 @@ int main(int argc,char **argv)
 	gtk_combo_box_append_text(GTK_COMBO_BOX(scale),"4");
 	gtk_combo_box_append_text(GTK_COMBO_BOX(scale),"2");
 	gtk_combo_box_set_active(GTK_COMBO_BOX(scale),0);
+
+	hbox = gtk_hbox_new(FALSE,4);
+	gtk_box_pack_start(GTK_BOX(vbox),hbox,TRUE,TRUE,0);
+	gtk_box_pack_start(GTK_BOX(hbox),gtk_label_new("VRef source:"),TRUE,TRUE,0);
+	scale=gtk_combo_box_new_text();
+	gtk_box_pack_start(GTK_BOX(hbox),scale,TRUE,TRUE,0);
+	g_signal_connect(G_OBJECT(scale),"changed",G_CALLBACK(&vref_changed),NULL);
+
+	gtk_combo_box_append_text(GTK_COMBO_BOX(scale),"AREF");
+	gtk_combo_box_append_text(GTK_COMBO_BOX(scale),"AVcc");
+	gtk_combo_box_append_text(GTK_COMBO_BOX(scale),"Internal 1.1V");
 
 	scope_display_set_data(image,data,sizeof(data));
 
