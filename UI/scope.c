@@ -41,27 +41,32 @@ static void draw(GtkWidget *scope, cairo_t *cr)
 	int lx=scope->allocation.x;
 	int ly=scope->allocation.y+scope->allocation.height;
 
-	cairo_set_source_rgb (cr, 0, 0, 0xff);
+	cairo_set_source_rgb (cr, 0, 0, 0);
 
+	//	cairo_set_source_rgb (cr, 0, 0, 0);
+	cairo_rectangle(cr,
+					scope->allocation.x,
+					scope->allocation.y,
+					scope->allocation.width,
+					scope->allocation.height);
+	cairo_fill(cr);
+
+	cairo_set_source_rgb (cr, 0, 0, 0xff);
+	cairo_fill_preserve (cr);
 	cairo_move_to(cr,lx,ly - self->tlevel);
     cairo_line_to(cr,lx + scope->allocation.width,ly - self->tlevel);
 	/*	cairo_arc (cr, x, y, radius, 0, 2 * M_PI);
 	 */
 	cairo_stroke(cr);
 
-	cairo_set_source_rgb (cr, 0, 0, 0);
-//	cairo_fill_preserve (cr);
-	//	cairo_set_source_rgb (cr, 0, 0, 0);
 
+	cairo_set_source_rgb( cr, 0, 255, 0);
 
 	for (i=0; i<512/self->zoom; i++) {
 		cairo_move_to(cr,lx,ly);
 		lx=scope->allocation.x + i*self->zoom;
 		ly=scope->allocation.y+scope->allocation.height - self->dbuf[i];
 		cairo_line_to(cr,lx,ly);
-		if (i==511) {
-			printf("%d\n", self->dbuf[i]);
-		}
 	}
 	cairo_stroke (cr);
 }

@@ -19,6 +19,9 @@
 #include <gtk/gtk.h>
 #include "scope.h"
 #include "serial.h"
+#include <math.h>
+#include <stdlib.h>
+
 GtkWidget *window;
 GdkPixbuf *pixbuf;
 GtkWidget *image;
@@ -65,6 +68,16 @@ gboolean zoom_changed(GtkWidget *widget)
 	return TRUE;
 }
 
+gboolean prescaler_changed(GtkWidget *widget)
+{
+	gchar *c = gtk_combo_box_get_active_text(GTK_COMBO_BOX(widget));
+
+	int base = (int)log2((double)atoi(c));
+	//printf("Prescale: 0x%x\n",base);
+	serial_set_prescaler(base);
+	return TRUE;
+}
+
 int main(int argc,char **argv)
 {
 	GtkWidget*scale;
@@ -105,7 +118,21 @@ int main(int argc,char **argv)
 	gtk_box_pack_start(GTK_BOX(hbox),scale,TRUE,TRUE,0);
 	g_signal_connect(G_OBJECT(scale),"value-changed",G_CALLBACK(&holdoff_level_changed),NULL);
 
+	hbox = gtk_hbox_new(FALSE,4);
+	gtk_box_pack_start(GTK_BOX(vbox),hbox,TRUE,TRUE,0);
+	gtk_box_pack_start(GTK_BOX(hbox),gtk_label_new("Prescaler:"),TRUE,TRUE,0);
+	scale=gtk_combo_box_new_text();
+	gtk_box_pack_start(GTK_BOX(hbox),scale,TRUE,TRUE,0);
+	g_signal_connect(G_OBJECT(scale),"changed",G_CALLBACK(&prescaler_changed),NULL);
 
+	gtk_combo_box_append_text(GTK_COMBO_BOX(scale),"128");
+	gtk_combo_box_append_text(GTK_COMBO_BOX(scale),"64");
+	gtk_combo_box_append_text(GTK_COMBO_BOX(scale),"32");
+	gtk_combo_box_append_text(GTK_COMBO_BOX(scale),"16");
+	gtk_combo_box_append_text(GTK_COMBO_BOX(scale),"8");
+	gtk_combo_box_append_text(GTK_COMBO_BOX(scale),"4");
+	gtk_combo_box_append_text(GTK_COMBO_BOX(scale),"2");
+	gtk_combo_box_set_active(GTK_COMBO_BOX(scale),0);
 
 	scope_display_set_data(image,data,sizeof(data));
 

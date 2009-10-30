@@ -46,37 +46,47 @@ unsigned char triggerLevel=0;
 unsigned char triggerFlags=0;
 unsigned char autoTrigSamples = 100;
 unsigned char holdoffSamples = 0;
-boolean triggered;
-boolean startConversion=false;
-boolean conversionDone=false;
+
+/* Booleans merged */
+
+byte flags;
+
+#define BYTE_FLAG_TRIGGERED       (1<<0)
+#define BYTE_FLAG_STARTCONVERSION (1<<1)
+#define BYTE_FLAG_CONVERSIONDONE  (1<<2)
+#define BYTE_FLAG_INVERTTRIGGER   (1<<3)
 
 #define BIT(x) (1<<x)
 
 const int ledPin = 13;
 
+static byte prescale = BIT(ADPS0)|BIT(ADPS1)|BIT(ADPS2);
+static byte adcref = 0x3; // Default internal 1.1 vref
 
 void setup_adc()
 {
 	ADCSRA = 0;
 	ADCSRB = 0; // Free-running mode
 	// DIDR0 = ~1; // Enable only first analog input
-	ADMUX = 0xF0; // internal 1.1v reference, left-aligned, channel 0
+	ADMUX = 0x20; // internal 1.1v reference, left-aligned, channel 0
+	ADMUX |= (adcref<<(REFS0-1)); // internal 1.1v reference, left-aligned, channel 0
+
 	PRR &= ~BIT(PRADC);
-	ADCSRA = BIT(ADIE)|BIT(ADEN)|BIT(ADSC)|BIT(ADATE)|/*BIT(ADPS0)|*/BIT(ADPS1)|BIT(ADPS2); // Start conversion, enable autotrigger
+	ADCSRA = BIT(ADIE)|BIT(ADEN)|BIT(ADSC)|BIT(ADATE)|prescale; // Start conversion, enable autotrigger
 
 }
 
 void start_sampling()
 {
 	sei();
-	conversionDone=false;
-	startConversion=true;
+	flags &= ~BYTE_FLAG_CONVERSIONDONE;
+	flags |= BYTE_FLAG_STARTCONVERSION;
 }
 
 void adc_set_frequency(unsigned char divider)
 {
 	ADCSRA &= ~0x7;
-	ADCSRA |= divider  & 0x7;
+	ADCSRA |= (divider & 0x7);
 }
 
 void setup()
@@ -119,15 +129,28 @@ void process_packet(unsigned char command, unsigned char *buf, unsigned short si
 		send_packet(COMMAND_VERSION_REPLY, buf, 2);
 		break;
 	case COMMAND_START_SAMPLING:
-		//adc_set_frequency(0x7);
 		start_sampling();
 		break;
 	case COMMAND_SET_TRIGGER:
 		triggerLevel = buf[0];
 		break;
-
 	case COMMAND_SET_HOLDOFF:
 		holdoffSamples = buf[0];
+		break;
+	case COMMAND_SET_VREF:
+		adcref = buf[0] & 0x3;
+		setup_adc();
+		break;
+	case COMMAND_SET_PRESCALER:
+		prescale = buf[0] & 0x7;
+        setup_adc();
+		break;
+	case COMMAND_SET_TRIGINVERT:
+		if (buf[0]==0) {
+			flags &= ~BYTE_FLAG_INVERTTRIGGER;
+		} else {
+			flags |= BYTE_FLAG_INVERTTRIGGER;
+		}
 		break;
 	default:
 		send_packet(COMMAND_ERROR,NULL,0);
@@ -197,8 +220,8 @@ void loop() {
 	if (Serial.available()>0) {
 		bIn =  Serial.read();
 		process(bIn & 0xff);
-	} else if (conversionDone) {
-		conversionDone=false;
+	} else if (flags & BYTE_FLAG_CONVERSIONDONE) {
+		flags &= ~ BYTE_FLAG_CONVERSIONDONE;
 		send_packet(COMMAND_BUFFER_SEG, dataBuffer, 512);
 	} else {
 	}
@@ -219,34 +242,31 @@ ISR(ADC_vect)
 		return;
 	}
 
-	if (triggered==0 && triggerLevel>0) {
+	if (!(flags & BYTE_FLAG_TRIGGERED) && triggerLevel>0) {
 
-#ifdef AUTOTRIGGER
 		if (autoTrigCount >= autoTrigSamples ) {
-			triggered=1;
+			flags |= BYTE_FLAG_TRIGGERED;
 		} else {
-#endif
-			//if (last<=triggerLevel && ADCH>last && (ADCH>triggerLevel) && ( (ADCH-last) > TRIGGER_NOISE_LEVEL)) {
-			if (ADCH>=triggerLevel) {
-				triggered=1;
+
+			if ( !(flags&BYTE_FLAG_INVERTTRIGGER) && ADCH>=triggerLevel && last<triggerLevel) {
+				flags |= BYTE_FLAG_TRIGGERED;
+			} else if ( flags&BYTE_FLAG_INVERTTRIGGER && ADCH<=triggerLevel && last>triggerLevel) {
+				flags |= BYTE_FLAG_TRIGGERED;
 			} else {
 				autoTrigCount++;
 			}
-#ifdef AUTOTRIGGER
 		}
-#endif
 	} else {
-		triggered=1;
+		flags |= BYTE_FLAG_TRIGGERED;
 	}
 
 	last=ADCH;
 
-	if (triggered) {
+	if (flags & BYTE_FLAG_TRIGGERED) {
 
-		if (startConversion && dataBufferPtr==0) {
+		if (flags & BYTE_FLAG_STARTCONVERSION && dataBufferPtr==0) {
 			do_store_data=true;
 			digitalWrite(ledPin,1);
-
 		}
 
 		if (do_store_data) {
@@ -258,16 +278,16 @@ ISR(ADC_vect)
 
 			/* End of this conversion. Perform holdoff if needed */
 			if (do_store_data) {
-				conversionDone = true;
-				startConversion = false;
+				flags |= BYTE_FLAG_CONVERSIONDONE;
+				flags &= ~BYTE_FLAG_STARTCONVERSION;
 			}
 
-			if (conversionDone)
+			if (flags & BYTE_FLAG_CONVERSIONDONE)
 				digitalWrite(ledPin,0);
 
 			do_store_data=false;
 
-			triggered=0;
+			flags &= ~BYTE_FLAG_TRIGGERED;
 			holdoff=holdoffSamples;
 			autoTrigCount=0;
 			dataBufferPtr=0;

@@ -1,6 +1,6 @@
 all: oscope
 
-CFLAGS=$(shell pkg-config --cflags gtk+-2.0 cairo-xlib) -Wall -Werror
+CFLAGS=$(shell pkg-config --cflags gtk+-2.0 cairo-xlib) -Wall -Werror -std=c99
 LIBS=$(shell pkg-config --libs gtk+-2.0)
 
 

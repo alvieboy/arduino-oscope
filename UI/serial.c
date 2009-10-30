@@ -136,23 +136,23 @@ void process(unsigned char bIn)
 	switch(st) {
 	case SIZE:
 		pSize = bIn;
-		printf("S0: %u\n",bIn);
+		//printf("S0: %u\n",bIn);
 		cksum = bIn;
 		st = SIZE2;
 		break;
 
 	case SIZE2:
 		pSize += (unsigned short)bIn<<8;
-		printf("S1: %u\n",bIn);
+		//printf("S1: %u\n",bIn);
 		pBufPtr = 0;
 		st = COMMAND;
-		printf("S+: %u\n",pSize);
+		//printf("S+: %u\n",pSize);
 		break;
 
 	case COMMAND:
 
 		command = bIn;
-		printf("CM: %u\n",command);
+		//printf("CM: %u\n",command);
 		if (pSize>0)
 			st = PAYLOAD;
 		else
@@ -249,7 +249,15 @@ int init(char *device)
 	return 0;
 
 }
+void serial_set_prescaler(unsigned char prescaler)
+{
+	send_packet(COMMAND_SET_PRESCALER,&prescaler,1);
+}
 
+void serial_set_vref(unsigned char vref)
+{
+	send_packet(COMMAND_SET_VREF,&vref,1);
+}
 
 int serial_run( void (*setdata)(unsigned char *data))
 {
