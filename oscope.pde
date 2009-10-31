@@ -109,8 +109,8 @@ void send_packet(unsigned char command, unsigned char *buf, unsigned short size)
 	cksum^= (size>>8);
 	cksum^= (size&0xff);
 
-	Serial.write(size&0xff);
 	Serial.write((size>>8)&0xff);
+	Serial.write(size&0xff);
 
 	Serial.write(command);
 	for (i=0;i<size;i++) {
