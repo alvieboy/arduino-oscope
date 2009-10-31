@@ -187,13 +187,13 @@ void process(unsigned char bIn)
 
 	switch(st) {
 	case SIZE:
-		pSize = bIn;
+		pSize =((unsigned short)bIn<<8);
 		cksum = bIn;
 		st = SIZE2;
 		break;
 
 	case SIZE2:
-		pSize += ((unsigned short)bIn<<16);
+		pSize += bIn;
 		if (bIn>MAX_PACKET_SIZE)
 			break;
 		pBufPtr = 0;

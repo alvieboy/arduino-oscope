@@ -59,8 +59,8 @@ void send_packet(unsigned char command, unsigned char *buf, unsigned short size)
 	cksum^=(size>>8);
 	cksum^=(size&0xff);
 
-	sendchar(size&0xff);
 	sendchar(size>>8);
+	sendchar(size&0xff);
 
 	sendchar(command);
 	cksum^=(unsigned char)command;
