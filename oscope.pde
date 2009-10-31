@@ -25,7 +25,7 @@
 
 /* Our version */
 #define VERSION_HIGH 0x01
-#define VERSION_LOW 0x01
+#define VERSION_LOW 0x02
 
 /* Serial processor state */
 enum state {
@@ -38,9 +38,9 @@ enum state {
 
 /* Maximum packet size we can receive from serial. We can however transmit more than this */
 #define MAX_PACKET_SIZE 6
-#define NUM_SAMPLES 512
+unsigned short numSamples = 962;
 
-unsigned char dataBuffer[NUM_SAMPLES];
+unsigned char *dataBuffer;
 unsigned short dataBufferPtr;
 unsigned char triggerLevel=0;
 unsigned char triggerFlags=0;
@@ -96,6 +96,8 @@ void setup()
 	pinMode(ledPin,OUTPUT);
 	pinMode(sampleFreqPin,OUTPUT);
 	setup_adc();
+	dataBuffer = (unsigned char*)malloc(numSamples);
+    while (NULL==dataBuffer);
 	sei();
 }
 
@@ -152,7 +154,9 @@ void process_packet(unsigned char command, unsigned char *buf, unsigned short si
 		buf[1] = holdoffSamples;
 		buf[2] = adcref;
 		buf[3] = prescale;
-		send_packet(COMMAND_PARAMETERS_REPLY, buf, 4);
+		buf[4] = (numSamples >> 8);
+		buf[5] = numSamples & 0xff;
+		send_packet(COMMAND_PARAMETERS_REPLY, buf, 6);
 		break;
 	case COMMAND_SET_TRIGINVERT:
 		if (buf[0]==0) {
@@ -231,7 +235,7 @@ void loop() {
 		process(bIn & 0xff);
 	} else if (flags & BYTE_FLAG_CONVERSIONDONE) {
 		flags &= ~ BYTE_FLAG_CONVERSIONDONE;
-		send_packet(COMMAND_BUFFER_SEG, dataBuffer, 512);
+		send_packet(COMMAND_BUFFER_SEG, dataBuffer, numSamples);
 	} else {
 	}
 }
@@ -284,7 +288,7 @@ ISR(ADC_vect)
 		}
 		dataBufferPtr++;
 
-		if (dataBufferPtr>sizeof(dataBuffer)) {
+		if (dataBufferPtr>numSamples) {
 
 			/* End of this conversion. Perform holdoff if needed */
 			if (do_store_data) {

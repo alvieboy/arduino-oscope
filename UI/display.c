@@ -35,6 +35,7 @@ GtkWidget *scale_trigger;
 GtkWidget *scale_holdoff;
 GtkWidget *combo_prescaler;
 GtkWidget *combo_vref;
+unsigned short numSamples;
 
 const unsigned long arduino_freq = 16000000; // 16 MHz
 
@@ -45,16 +46,20 @@ void win_destroy_callback()
 
 unsigned char current_trigger_level = 0;
 
-void mysetdata(unsigned char *data)
+void mysetdata(unsigned char *data,size_t size)
 {
-	scope_display_set_data(image,data,512);
+	scope_display_set_data(image,data,size);
 }
 
 void scope_got_parameters(unsigned char triggerLevel,
 						  unsigned char holdoffSamples,
 						  unsigned char adcref,
-						  unsigned char prescale)
+						  unsigned char prescale,
+						  unsigned short numS)
 {
+	numSamples=numS;
+	gtk_widget_set_size_request(image,numS,256);
+	scope_display_set_samples(image,numS);
 	gtk_range_set_value(GTK_RANGE(scale_trigger),triggerLevel);
 	gtk_range_set_value(GTK_RANGE(scale_holdoff),holdoffSamples);
 
@@ -106,7 +111,6 @@ gboolean prescaler_changed(GtkWidget *widget)
 	serial_set_prescaler(base);
 
 	double fsample = get_sample_frequency(arduino_freq, atol(c));
-
 	printf("Fsample: %F Hz\n", fsample);
 
 	// 512 samples.
@@ -116,9 +120,9 @@ gboolean prescaler_changed(GtkWidget *widget)
 	// Each slot: 512/freq/10
     // In ms * 1000.0
 
-	printf("Tdiv: %F ms\n", 51200.0 / fsample );
-	printf("Test with freq %F Hz\n", fsample/51.2);
-
+	printf("Tdiv: %F ms\n", (double)numSamples*100.0 / fsample );
+	printf("Test with freq %F Hz\n", fsample/((double)numSamples/10.0));
+	scope_display_set_sample_freq(image, fsample);
 	return TRUE;
 }
 gboolean vref_changed(GtkWidget *widget)
@@ -156,7 +160,7 @@ int main(int argc,char **argv)
 {
 	GtkWidget*scale_zoom;
 	gtk_init(&argc,&argv);
-	unsigned char data[512];
+	//unsigned char data[512];
 
 	if (argc<2)
 		return help(argv[0]);
@@ -232,7 +236,7 @@ int main(int argc,char **argv)
 	g_signal_connect(G_OBJECT(tog),"toggled",G_CALLBACK(&trigger_toggle_changed),NULL);
 
 
-	scope_display_set_data(image,data,sizeof(data));
+	//scope_display_set_data(image,data,sizeof(data));
 
 	gtk_widget_show_all(window);
 	gtk_widget_set_size_request(image,512,256);

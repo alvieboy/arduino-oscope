@@ -1,0 +1,128 @@
+--- Serial protocol definition for arduino-oscope --
+
+ Arduino and display device (PC) communicate over a serial link, using a 
+ simple packet-oriented protocol. The protocol is the same for both 
+ directions.
+ 
+ Packet description:
+ 
+ 
+ +--------------+----------+---------------------+----------+
+ | Payload Size | Command  | Payload             | Checksum |
+ |  (2 bytes)   | (1 byte) | (0 to payload size) |  1 byte  |
+ +--------------+----------+---------------------+----------+
+ 
+ * Payload size
+   - Size of payload, in big-endian. Can be zero for simple commands (i.e., 
+     no payload at all)
+ 
+ * Command
+   - Command or reply. 1 byte long. See list below for supported commands.
+ 
+ * Payload
+   - Variable size payload for this packet. Size is depicted by Payload 
+     Size. If Payload Size is zero, this field is not present in packet.
+     
+ * Checksum
+   - Packet checksum, using XOR with 0 as start value. To compute checksum
+     for an outgoing packet, XOR all values of the packet except for the
+     checksum itself. To validate checksum of a packet, XOR all bytes 
+     received including checksum. If result is zero, then packet has no 
+     errors.
+   
+ Packets received by arduino have a size limit, due to memory size constraints.
+ Any packet received with size greater than this limit is ignored.
+ 
+ Supported commands (version 1.2):
+ 
+  * COMMAND_PING           0x3E
+    > Payload size: variable
+    
+      Request a ping from arduino. Arduino will reply with COMMAND_PONG and
+      same payload.
+   
+  * COMMAND_GET_VERSION    0x40
+    > Payload size: 0
+    
+      Request arduino oscope version. Arduino will reply with 
+      COMMAND_VERSION_REPLY.
+      
+  * COMMAND_START_SAMPLING 0x41
+    > Payload size: 0
+     
+      Request arduino to start sampling. Arduino will reply with 
+      COMMAND_BUFFER_SEG once sampling is done.
+      
+  * COMMAND_SET_TRIGGER    0x42
+    > Payload size: 1
+    
+      Set trigger level. Payload byte 0 depicts the desired trigger level.
+      
+  * COMMAND_SET_HOLDOFF    0x43
+    > Payload size: 1
+    
+      Set holdoff value. Payload byte 0 depicts the desired holdoff samples.
+    
+  * COMMAND_SET_TRIGINVERT 0x44
+    > Payload size: 1
+     
+      Set invert trigger flag. Payload byte 0 depicts if trigger is not 
+      inverted (a 0 value) or if it is inverted (a 1 value).
+      
+  * COMMAND_SET_VREF       0x45
+    > Payload size: 1
+    
+      Set VREF source for Arduino. Payload byte 0 defines VREF source value.
+      Values can be 0 (AREF), 1 (AVcc) or 3 (Internal 1.1v).
+      
+  * COMMAND_SET_PRESCALER  0x46
+    > Payload size: 1
+     
+      Set ADC prescaler value. Payload byte 0 defines the log2 of the 
+      desired prescaler value (7 gives prescaler of 128, 6 prescaler of 64,
+      and so on). Minimum prescaler value is 2.
+      
+  * COMMAND_GET_PARAMETERS 0x47
+    > Payload size: 0
+    
+      Request configured parameters from arduino oscope. Arduino will reply
+      with COMMAND_PARAMETERS_REPLY
+      
+  * COMMAND_VERSION_REPLY  0x80
+    > Payload size: 2
+    
+      Arduino reply with version. Payload byte 0 depicts upper version, 
+      and byte 1 lower version.
+      
+  * COMMAND_BUFFER_SEG     0x81
+    > Payload size: NUM_SAMPLES
+    
+      Arduino reply with sampled data. Packet size may vary depending on 
+      number of samples configured. This data is unsigned 8-bit (higher
+      ADC sampled values).
+      
+  * COMMAND_PARAMETERS_REPLY 0x87
+    > Payload size: 6
+    
+      Current configured values. Payload will contain the following values
+      at byte offset:
+      
+        0 - Trigger level
+        1 - Holdoff samples
+        2 - ADC reference
+        3 - ACD prescaler
+        4,5 - Number of samples (NUM_SAMPLES). Big-endian.
+        
+  * COMMAND_PONG           0xE3
+    > Payload size: variable
+    
+      Arduino reply to PING command. Payload is the same as ping request.
+      
+  * COMMAND_ERROR          0xFF
+    > Payload size: 0
+     
+      Arduino reply to some unknown command.
+      
+
+
+ 

@@ -28,9 +28,11 @@ struct _ScopeDisplay
 {
 	GtkDrawingArea parent;
 	/* private */
-	unsigned char dbuf[512];
+	unsigned char *dbuf;
+	unsigned short numSamples;
 	unsigned char tlevel;
 	unsigned int zoom;
+	double freq;
 };
 
 struct _ScopeDisplayClass
@@ -49,5 +51,7 @@ GtkWidget *scope_display_new (void);
 void scope_display_set_data(GtkWidget *scope, unsigned char *data, size_t size);
 void scope_display_set_trigger_level(GtkWidget *scope, unsigned char level);
 void scope_display_set_zoom(GtkWidget *scope, unsigned int zoom);
+void scope_display_set_samples(GtkWidget *scope, unsigned short numSamples);
+void scope_display_set_sample_freq(GtkWidget *scope, double freq);
 
 #endif

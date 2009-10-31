@@ -35,12 +35,13 @@ gint watcher;
 GMainLoop *loo;
 #endif
 
-static void (*sdata)(unsigned char *data);
+static void (*sdata)(unsigned char *data,size_t size);
 
 extern void scope_got_parameters(unsigned char triggerLevel,
 								 unsigned char holdoffSamples,
 								 unsigned char adcref,
-								 unsigned char prescale);
+								 unsigned char prescale,
+								 unsigned short numSamples);
 
 void sendchar(int i) {
 	char t = i &0xff;
@@ -95,6 +96,7 @@ static enum mystate state = PING;
 
 void process_packet(unsigned char command, unsigned char *buf, unsigned short size)
 {
+	unsigned short ns;
 	switch(state) {
 	case PING:
 		if (command==COMMAND_PONG) {
@@ -114,15 +116,17 @@ void process_packet(unsigned char command, unsigned char *buf, unsigned short si
 		}
 		break;
 	case GETPARAMETERS:
-		
-		scope_got_parameters(buf[0],buf[1],buf[2],buf[3]);
+		ns = buf[4] << 8;
+		ns += buf[5];
+		scope_got_parameters(buf[0],buf[1],buf[2],buf[3],ns);
+		printf("Num samples: %d %d %d \n", ns, buf[4],buf[5]);
 		send_packet(COMMAND_START_SAMPLING,NULL,0);
 
 		state = SAMPLING;
 		break;
 
 	case SAMPLING:
-		sdata(buf);
+		sdata(buf, size);
 		send_packet(COMMAND_START_SAMPLING,NULL,0);
 		state=SAMPLING;
 
@@ -284,7 +288,7 @@ void serial_set_trigger_invert(gboolean active)
 	send_packet(COMMAND_SET_TRIGINVERT,&a,1);
 }
 
-int serial_run( void (*setdata)(unsigned char *data))
+int serial_run( void (*setdata)(unsigned char *data,size_t size))
 {
 	sdata = setdata;
 	send_packet(COMMAND_PING,(unsigned char*)"BABA",4);

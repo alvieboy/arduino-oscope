@@ -19,12 +19,14 @@
 #include "scope.h"
 #include <cairo.h>
 #include <math.h>
+#include <string.h>
 
 G_DEFINE_TYPE (ScopeDisplay, scope_display, GTK_TYPE_DRAWING_AREA);
 
 static void scope_display_init (ScopeDisplay *scope)
 {
 	scope->zoom=1;
+	scope->dbuf = NULL;
 }
 
 GtkWidget *scope_display_new (void)
@@ -71,6 +73,9 @@ static void draw(GtkWidget *scope, cairo_t *cr)
 	int i;
 	int lx=scope->allocation.x;
 	int ly=scope->allocation.y+scope->allocation.height;
+	cairo_text_extents_t te;
+	cairo_font_extents_t fe;
+	gchar text[24];
 
 	draw_background(cr, &scope->allocation);
 	draw_grid(cr, &scope->allocation);
@@ -78,7 +83,7 @@ static void draw(GtkWidget *scope, cairo_t *cr)
 	cairo_set_source_rgb (cr, 0, 0, 1.0);
 	cairo_fill_preserve (cr);
 	cairo_move_to(cr,lx,ly - self->tlevel);
-    cairo_line_to(cr,lx + scope->allocation.width,ly - self->tlevel);
+	cairo_line_to(cr,lx + scope->allocation.width,ly - self->tlevel);
 	/*	cairo_arc (cr, x, y, radius, 0, 2 * M_PI);
 	 */
 	cairo_stroke(cr);
@@ -86,13 +91,32 @@ static void draw(GtkWidget *scope, cairo_t *cr)
 
 	cairo_set_source_rgb( cr, 0, 255, 0);
 
-	for (i=0; i<512/self->zoom; i++) {
-		cairo_move_to(cr,lx,ly);
-		lx=scope->allocation.x + i*self->zoom;
-		ly=scope->allocation.y+scope->allocation.height - self->dbuf[i];
-		cairo_line_to(cr,lx,ly);
+	if (NULL!=self->dbuf) {
+		for (i=0; i<self->numSamples/self->zoom; i++) {
+			cairo_move_to(cr,lx,ly);
+			lx=scope->allocation.x + i*self->zoom;
+			ly=scope->allocation.y+scope->allocation.height - self->dbuf[i];
+			cairo_line_to(cr,lx,ly);
+		}
+		cairo_stroke (cr);
 	}
-	cairo_stroke (cr);
+
+	cairo_set_font_size (cr, 12);
+	cairo_set_source_rgb (cr, 0.5,1.0,1.0);
+	cairo_select_font_face (cr, "Helvetica",
+							CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+
+	double tdiv = (double)self->numSamples*100.0 / self->freq;
+	sprintf(text,"tDiv: %.02fms", tdiv / (double)self->zoom);
+	cairo_font_extents(cr, &fe);
+	cairo_text_extents(cr, text, &te);
+
+	
+	cairo_move_to(cr,
+				  scope->allocation.x + scope->allocation.width - te.width - 10,
+				  scope->allocation.y + scope->allocation.height -  te.height - 10
+				 );
+	cairo_show_text(cr, text);
 }
 
 void scope_display_set_zoom(GtkWidget *scope, unsigned int zoom)
@@ -101,13 +125,27 @@ void scope_display_set_zoom(GtkWidget *scope, unsigned int zoom)
 	self->zoom=zoom;
 	gtk_widget_queue_draw(scope);
 }
+void scope_display_set_sample_freq(GtkWidget *scope, double freq)
+{
+	ScopeDisplay *self = SCOPE_DISPLAY(scope);
+	self->freq=freq;
+}
+
+void scope_display_set_samples(GtkWidget *scope, unsigned short numSamples)
+{
+	ScopeDisplay *self = SCOPE_DISPLAY(scope);
+	if (self->dbuf)
+		g_free(self->dbuf);
+	self->dbuf = (unsigned char*)g_malloc(numSamples);
+	self->numSamples = numSamples;
+}
 
 void scope_display_set_data(GtkWidget *scope, unsigned char *data, size_t size)
 {
 	ScopeDisplay *self = SCOPE_DISPLAY(scope);
 
 	int i;
-	for (i=0; i<size && i<512; i++) {
+	for (i=0; i<size && i<self->numSamples; i++) {
 		self->dbuf[i] = *data;
 		data++;
 	}
