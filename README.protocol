@@ -37,46 +37,54 @@
  
   * COMMAND_PING           0x3E
     > Payload size: variable
+    > Since: v1.1
     
       Request a ping from arduino. Arduino will reply with COMMAND_PONG and
       same payload.
    
   * COMMAND_GET_VERSION    0x40
     > Payload size: 0
+    > Since: v1.1
     
       Request arduino oscope version. Arduino will reply with 
       COMMAND_VERSION_REPLY.
       
   * COMMAND_START_SAMPLING 0x41
     > Payload size: 0
-     
+    > Since: v1.1
+    
       Request arduino to start sampling. Arduino will reply with 
       COMMAND_BUFFER_SEG once sampling is done.
       
   * COMMAND_SET_TRIGGER    0x42
     > Payload size: 1
+    > Since: v1.1
     
       Set trigger level. Payload byte 0 depicts the desired trigger level.
       
   * COMMAND_SET_HOLDOFF    0x43
     > Payload size: 1
+    > Since: v1.2
     
       Set holdoff value. Payload byte 0 depicts the desired holdoff samples.
     
   * COMMAND_SET_TRIGINVERT 0x44
     > Payload size: 1
+    > Since: v1.2
      
       Set invert trigger flag. Payload byte 0 depicts if trigger is not 
       inverted (a 0 value) or if it is inverted (a 1 value).
       
   * COMMAND_SET_VREF       0x45
     > Payload size: 1
+    > Since: v1.2
     
       Set VREF source for Arduino. Payload byte 0 defines VREF source value.
       Values can be 0 (AREF), 1 (AVcc) or 3 (Internal 1.1v).
       
   * COMMAND_SET_PRESCALER  0x46
     > Payload size: 1
+    > Since: v1.2
      
       Set ADC prescaler value. Payload byte 0 defines the log2 of the 
       desired prescaler value (7 gives prescaler of 128, 6 prescaler of 64,
@@ -84,25 +92,29 @@
       
   * COMMAND_GET_PARAMETERS 0x47
     > Payload size: 0
+    > Since: v1.2
     
       Request configured parameters from arduino oscope. Arduino will reply
       with COMMAND_PARAMETERS_REPLY
       
   * COMMAND_VERSION_REPLY  0x80
     > Payload size: 2
+    > Since: v1.1
     
       Arduino reply with version. Payload byte 0 depicts upper version, 
       and byte 1 lower version.
       
   * COMMAND_BUFFER_SEG     0x81
     > Payload size: NUM_SAMPLES
+    > Since: v1.1
     
       Arduino reply with sampled data. Packet size may vary depending on 
       number of samples configured. This data is unsigned 8-bit (higher
       ADC sampled values).
       
   * COMMAND_PARAMETERS_REPLY 0x87
-    > Payload size: 6
+    > Payload size: 6 (v1.2)
+    > Since: v1.2
     
       Current configured values. Payload will contain the following values
       at byte offset:
@@ -115,14 +127,20 @@
         
   * COMMAND_PONG           0xE3
     > Payload size: variable
+    > Since: v1.1
     
       Arduino reply to PING command. Payload is the same as ping request.
       
   * COMMAND_ERROR          0xFF
     > Payload size: 0
-     
+    > Since: v1.1
+    
       Arduino reply to some unknown command.
       
-
+  * COMMAND_SET_SAMPLES    0x48
+    > Payload size: 2
+    > Since: v1.3
+    
+      Set number of arduino samples. Arduino will reply with COMMAND_PARAMETERS_REPLY.
 
  

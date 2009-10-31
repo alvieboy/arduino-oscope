@@ -25,7 +25,7 @@
 
 /* Our version */
 #define VERSION_HIGH 0x01
-#define VERSION_LOW 0x02
+#define VERSION_LOW 0x03
 
 /* Serial processor state */
 enum state {
@@ -38,9 +38,9 @@ enum state {
 
 /* Maximum packet size we can receive from serial. We can however transmit more than this */
 #define MAX_PACKET_SIZE 6
-unsigned short numSamples = 962;
+unsigned short numSamples;
 
-unsigned char *dataBuffer;
+unsigned char *dataBuffer=NULL;
 unsigned short dataBufferPtr;
 unsigned char triggerLevel=0;
 unsigned char triggerFlags=0;
@@ -90,15 +90,30 @@ void adc_set_frequency(unsigned char divider)
 	ADCSRA |= (divider & 0x7);
 }
 
+void set_num_samples(unsigned short num)
+{
+	if (num>1024)
+		return;
+
+	if (NULL!=dataBuffer)
+		free(dataBuffer);
+
+	/* NOTE - we must not change this while sampling!!! */
+	cli();
+
+	numSamples  = num;
+	dataBuffer = (unsigned char*)malloc(numSamples);
+
+	sei();
+}
 void setup()
 {
 	Serial.begin(BAUD_RATE);
 	pinMode(ledPin,OUTPUT);
 	pinMode(sampleFreqPin,OUTPUT);
 	setup_adc();
-	dataBuffer = (unsigned char*)malloc(numSamples);
-    while (NULL==dataBuffer);
-	sei();
+	
+	set_num_samples(962);
 }
 
 void send_packet(unsigned char command, unsigned char *buf, unsigned short size)
@@ -147,8 +162,11 @@ void process_packet(unsigned char command, unsigned char *buf, unsigned short si
 		break;
 	case COMMAND_SET_PRESCALER:
 		prescale = buf[0] & 0x7;
-        setup_adc();
+		setup_adc();
 		break;
+	case COMMAND_SET_SAMPLES:
+		set_num_samples((unsigned short)buf[0]<<8 | buf[1]);
+		/* No break - so we reply with parameters */
 	case COMMAND_GET_PARAMETERS:
 		buf[0] = triggerLevel;
 		buf[1] = holdoffSamples;
