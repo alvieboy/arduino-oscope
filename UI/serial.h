@@ -27,6 +27,9 @@ void serial_set_trigger_level(unsigned char trig);
 void serial_set_holdoff(unsigned char holdoff);
 void serial_set_prescaler(unsigned char prescaler);
 void serial_set_vref(unsigned char vref);
+void serial_set_trigger_invert(gboolean active);
+
+double get_sample_frequency(unsigned long freq, unsigned long prescaler);
 
 
 #endif

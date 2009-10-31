@@ -59,6 +59,7 @@ byte flags;
 #define BIT(x) (1<<x)
 
 const int ledPin = 13;
+const int sampleFreqPin = 2;
 
 unsigned char prescale = BIT(ADPS0)|BIT(ADPS1)|BIT(ADPS2);
 unsigned char adcref = 0x3; // Default internal 1.1 vref
@@ -93,6 +94,7 @@ void setup()
 {
 	Serial.begin(BAUD_RATE);
 	pinMode(ledPin,OUTPUT);
+	pinMode(sampleFreqPin,OUTPUT);
 	setup_adc();
 	sei();
 }
@@ -243,6 +245,7 @@ ISR(ADC_vect)
 	static unsigned short autoTrigCount=0;
 	static boolean do_store_data;
 	static unsigned char holdoff;
+	digitalWrite(sampleFreqPin,1);
 
 	if (holdoff>0) {
 		holdoff--;
@@ -300,5 +303,6 @@ ISR(ADC_vect)
 			dataBufferPtr=0;
 		}
 	}
+	digitalWrite(sampleFreqPin,0);
 }
 

@@ -36,6 +36,8 @@ GtkWidget *scale_holdoff;
 GtkWidget *combo_prescaler;
 GtkWidget *combo_vref;
 
+const unsigned long arduino_freq = 16000000; // 16 MHz
+
 void win_destroy_callback()
 {
 	gtk_main_quit();
@@ -102,6 +104,21 @@ gboolean prescaler_changed(GtkWidget *widget)
 	int base = (int)log2((double)atoi(c));
 	//printf("Prescale: 0x%x\n",base);
 	serial_set_prescaler(base);
+
+	double fsample = get_sample_frequency(arduino_freq, atol(c));
+
+	printf("Fsample: %F Hz\n", fsample);
+
+	// 512 samples.
+
+	// Ts = 1/freq.
+	// Full scope time: 512*1/freq.
+	// Each slot: 512/freq/10
+    // In ms * 1000.0
+
+	printf("Tdiv: %F ms\n", 51200.0 / fsample );
+	printf("Test with freq %F Hz\n", fsample/51.2);
+
 	return TRUE;
 }
 gboolean vref_changed(GtkWidget *widget)
@@ -118,6 +135,13 @@ gboolean vref_changed(GtkWidget *widget)
 		base = 3;
 	}
 	serial_set_vref(base);
+	return TRUE;
+}
+
+gboolean trigger_toggle_changed(GtkWidget *widget)
+{
+	gboolean active = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
+	serial_set_trigger_invert(active);
 	return TRUE;
 }
 
@@ -199,6 +223,14 @@ int main(int argc,char **argv)
 	gtk_combo_box_append_text(GTK_COMBO_BOX(combo_vref),"AREF");
 	gtk_combo_box_append_text(GTK_COMBO_BOX(combo_vref),"AVcc");
 	gtk_combo_box_append_text(GTK_COMBO_BOX(combo_vref),"Internal 1.1V");
+
+	hbox = gtk_hbox_new(FALSE,4);
+	gtk_box_pack_start(GTK_BOX(vbox),hbox,TRUE,TRUE,0);
+	gtk_box_pack_start(GTK_BOX(hbox),gtk_label_new("VRef source:"),TRUE,TRUE,0);
+	GtkWidget *tog = gtk_check_button_new_with_label("Invert trigger");
+	gtk_box_pack_start(GTK_BOX(hbox),tog,TRUE,TRUE,0);
+	g_signal_connect(G_OBJECT(tog),"toggled",G_CALLBACK(&trigger_toggle_changed),NULL);
+
 
 	scope_display_set_data(image,data,sizeof(data));
 

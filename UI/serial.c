@@ -278,6 +278,11 @@ void serial_set_vref(unsigned char vref)
 	//	printf("Setting VREF %d\n", vref);
 	send_packet(COMMAND_SET_VREF,&vref,1);
 }
+void serial_set_trigger_invert(gboolean active)
+{
+	unsigned char a = active ? 1:0;
+	send_packet(COMMAND_SET_TRIGINVERT,&a,1);
+}
 
 int serial_run( void (*setdata)(unsigned char *data))
 {
@@ -285,6 +290,13 @@ int serial_run( void (*setdata)(unsigned char *data))
 	send_packet(COMMAND_PING,(unsigned char*)"BABA",4);
 	loop();
 	return 0;
+}
+
+double get_sample_frequency(unsigned long freq, unsigned long prescaler)
+{
+	unsigned long adc_clock = freq / prescaler;
+	double fsample = (double)adc_clock / 13;
+	return fsample;
 }
 
 #ifdef STANDALONE

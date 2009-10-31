@@ -32,7 +32,38 @@ GtkWidget *scope_display_new (void)
 	return g_object_new (SCOPE_DISPLAY_TYPE, NULL);
 }
 
+static void draw_background(cairo_t *cr,const GtkAllocation *allocation)
+{
+	cairo_set_source_rgb (cr, 0, 0, 0);
 
+	//	cairo_set_source_rgb (cr, 0, 0, 0);
+	cairo_rectangle(cr,
+					allocation->x,
+					allocation->y,
+					allocation->width,
+					allocation->height);
+	cairo_fill(cr);
+}
+
+static void draw_grid(cairo_t *cr,const GtkAllocation *allocation)
+{
+	cairo_set_source_rgb (cr, 0.4, 0.4, 0.4);
+
+	double step_x = (double)allocation->width / 10.0;
+	double step_y = (double)allocation->height / 4.0;
+	double x,y;
+
+	for (x=0; x<(double)allocation->width; x+=step_x) {
+		cairo_move_to(cr, (double)allocation->x + x, (double)allocation->y);
+		cairo_line_to(cr, (double)allocation->x + x, (double)(allocation->y+allocation->height));
+		cairo_stroke( cr );
+	}
+	for (y=0; y<(double)allocation->height; y+=step_y) {
+		cairo_move_to(cr, (double)allocation->x, (double)allocation->y + y);
+		cairo_line_to(cr, (double)allocation->x + (double)(allocation->x+allocation->width) , (double)allocation->y + y);
+		cairo_stroke( cr );
+	}
+}
 
 static void draw(GtkWidget *scope, cairo_t *cr)
 {
@@ -41,17 +72,10 @@ static void draw(GtkWidget *scope, cairo_t *cr)
 	int lx=scope->allocation.x;
 	int ly=scope->allocation.y+scope->allocation.height;
 
-	cairo_set_source_rgb (cr, 0, 0, 0);
+	draw_background(cr, &scope->allocation);
+	draw_grid(cr, &scope->allocation);
 
-	//	cairo_set_source_rgb (cr, 0, 0, 0);
-	cairo_rectangle(cr,
-					scope->allocation.x,
-					scope->allocation.y,
-					scope->allocation.width,
-					scope->allocation.height);
-	cairo_fill(cr);
-
-	cairo_set_source_rgb (cr, 0, 0, 0xff);
+	cairo_set_source_rgb (cr, 0, 0, 1.0);
 	cairo_fill_preserve (cr);
 	cairo_move_to(cr,lx,ly - self->tlevel);
     cairo_line_to(cr,lx + scope->allocation.width,ly - self->tlevel);
