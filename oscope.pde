@@ -49,12 +49,13 @@ unsigned char holdoffSamples = 0;
 
 /* Booleans merged */
 
-byte flags;
+static byte gflags;
 
 #define BYTE_FLAG_TRIGGERED       (1<<0)
 #define BYTE_FLAG_STARTCONVERSION (1<<1)
 #define BYTE_FLAG_CONVERSIONDONE  (1<<2)
 #define BYTE_FLAG_INVERTTRIGGER   (1<<3)
+#define BYTE_FLAG_STOREDATA       (1<<4)
 
 #define BIT(x) (1<<x)
 
@@ -80,8 +81,8 @@ void setup_adc()
 void start_sampling()
 {
 	sei();
-	flags &= ~BYTE_FLAG_CONVERSIONDONE;
-	flags |= BYTE_FLAG_STARTCONVERSION;
+	gflags &= ~BYTE_FLAG_CONVERSIONDONE;
+	gflags |= BYTE_FLAG_STARTCONVERSION;
 }
 
 void adc_set_frequency(unsigned char divider)
@@ -178,9 +179,9 @@ void process_packet(unsigned char command, unsigned char *buf, unsigned short si
 		break;
 	case COMMAND_SET_TRIGINVERT:
 		if (buf[0]==0) {
-			flags &= ~BYTE_FLAG_INVERTTRIGGER;
+			gflags &= ~BYTE_FLAG_INVERTTRIGGER;
 		} else {
-			flags |= BYTE_FLAG_INVERTTRIGGER;
+			gflags |= BYTE_FLAG_INVERTTRIGGER;
 		}
 		break;
 	default:
@@ -197,8 +198,8 @@ void process(unsigned char bIn)
 	static unsigned int pBufPtr;
 	static unsigned short pSize;
 	static unsigned char command;
-
 	static enum state st = SIZE;
+
 
 	cksum^=bIn;
 	//Serial.write(cksum);
@@ -251,8 +252,8 @@ void loop() {
 	if (Serial.available()>0) {
 		bIn =  Serial.read();
 		process(bIn & 0xff);
-	} else if (flags & BYTE_FLAG_CONVERSIONDONE) {
-		flags &= ~ BYTE_FLAG_CONVERSIONDONE;
+	} else if (gflags & BYTE_FLAG_CONVERSIONDONE) {
+		gflags &= ~ BYTE_FLAG_CONVERSIONDONE;
 		send_packet(COMMAND_BUFFER_SEG, dataBuffer, numSamples);
 	} else {
 	}
@@ -260,14 +261,16 @@ void loop() {
 
 #define TRIGGER_NOISE_LEVEL 1
 
+#if 1
 
 ISR(ADC_vect)
 {
 	static unsigned char last=0;
 	static unsigned short autoTrigCount=0;
-	static boolean do_store_data;
 	static unsigned char holdoff;
-	digitalWrite(sampleFreqPin,1);
+	register byte flags = gflags;
+
+	//digitalWrite(sampleFreqPin,1);
 
 	if (holdoff>0) {
 		holdoff--;
@@ -297,11 +300,11 @@ ISR(ADC_vect)
 	if (flags & BYTE_FLAG_TRIGGERED) {
 
 		if (flags & BYTE_FLAG_STARTCONVERSION && dataBufferPtr==0) {
-			do_store_data=true;
-			digitalWrite(ledPin,1);
+			flags |= BYTE_FLAG_STOREDATA;
+			//digitalWrite(ledPin,1);
 		}
 
-		if (do_store_data) {
+		if (flags & BYTE_FLAG_STOREDATA) {
 			dataBuffer[dataBufferPtr] = ADCH;
 		}
 		dataBufferPtr++;
@@ -309,22 +312,31 @@ ISR(ADC_vect)
 		if (dataBufferPtr>numSamples) {
 
 			/* End of this conversion. Perform holdoff if needed */
-			if (do_store_data) {
+			if (flags & BYTE_FLAG_STOREDATA) {
 				flags |= BYTE_FLAG_CONVERSIONDONE;
 				flags &= ~BYTE_FLAG_STARTCONVERSION;
 			}
 
-			if (flags & BYTE_FLAG_CONVERSIONDONE)
-				digitalWrite(ledPin,0);
+			//if (flags & BYTE_FLAG_CONVERSIONDONE)
+			//	digitalWrite(ledPin,0);
 
-			do_store_data=false;
-
+			flags &= ~BYTE_FLAG_STOREDATA;
 			flags &= ~BYTE_FLAG_TRIGGERED;
+
 			holdoff=holdoffSamples;
 			autoTrigCount=0;
 			dataBufferPtr=0;
 		}
 	}
-	digitalWrite(sampleFreqPin,0);
+	//digitalWrite(sampleFreqPin,0);
+	gflags=flags;
 }
 
+#else
+
+ISR(ADC_vect,ISR_NAKED)
+{
+	reti();
+}
+
+#endif
