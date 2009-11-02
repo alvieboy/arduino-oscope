@@ -234,7 +234,7 @@ int init(char *device)
 		perror("open");
 		return -1;
 	}
-	fprintf(stderr,"Opened device '%s'\n", fd);
+	fprintf(stderr,"Opened device '%s'\n", device);
 
 	tcgetattr(fd, &termset);
 
