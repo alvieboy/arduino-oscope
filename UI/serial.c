@@ -20,7 +20,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <stdio.h>
-#include <malloc.h>
+#include <stdlib.h>
 #include <glib.h>
 #include <string.h>
 #include "serial.h"
