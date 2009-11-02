@@ -151,11 +151,12 @@ gboolean trigger_toggle_changed(GtkWidget *widget)
 
 gboolean trigger_single_shot(GtkWidget *widget)
 {
-	GtkWidget*          gtk_dialog_new_with_buttons         (const gchar *title,
+/*	GtkWidget*          gtk_dialog_new_with_buttons         (const gchar *title,
                                                          GtkWindow *parent,
                                                          GtkDialogFlags flags,
                                                          const gchar *first_button_text,
-                                                         ...);
+														 ...);
+                                                         */
 	return TRUE;
 }
 
