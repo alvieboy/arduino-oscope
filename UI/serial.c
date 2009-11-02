@@ -229,7 +229,7 @@ int real_serial_init(char *device)
 	struct termios termset;
 	GError *error = NULL;
 
-	fd = open(device, O_RDWR);
+	fd = open(device, O_RDWR|O_NONBLOCK);
 	if (fd<0) {
 		perror("open");
 		return -1;
