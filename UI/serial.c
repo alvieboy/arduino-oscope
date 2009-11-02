@@ -224,7 +224,7 @@ void serial_set_holdoff(unsigned char holdoff)
 	send_packet(COMMAND_SET_HOLDOFF,&holdoff,1);
 }
 
-int init(char *device)
+int real_serial_init(char *device)
 {
 	struct termios termset;
 	GError *error = NULL;
@@ -319,7 +319,7 @@ int main(int argc,char**argv)
 #else
 int serial_init(gchar*name)
 {
-	if (init(name)<0)
+	if (real_serial_init(name)<0)
 		return -1;
 	return 0;
 }
