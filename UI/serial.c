@@ -231,8 +231,10 @@ int init(char *device)
 
 	fd = open(device, O_RDWR);
 	if (fd<0) {
+		perror("open");
 		return -1;
 	}
+	dprintf(stderr,"Opened device '%s'\n", fd);
 
 	tcgetattr(fd, &termset);
 
@@ -267,7 +269,8 @@ int init(char *device)
 	if ((watcher=g_io_add_watch(channel, G_IO_IN, &serial_data_ready, NULL))<0) {
 		fprintf(stderr,"Cannot add watch\n");
 	}
-    //fprintf(stderr,"Channel set up OK\n");
+
+	fprintf(stderr,"Channel set up OK\n");
 	return 0;
 
 }
@@ -291,6 +294,7 @@ void serial_set_trigger_invert(gboolean active)
 int serial_run( void (*setdata)(unsigned char *data,size_t size))
 {
 	sdata = setdata;
+    fprintf(stderr,"Pinging device...\n");
 	send_packet(COMMAND_PING,(unsigned char*)"BABA",4);
 	loop();
 	return 0;
