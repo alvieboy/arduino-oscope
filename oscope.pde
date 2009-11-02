@@ -39,7 +39,7 @@ enum state {
 
 /* Maximum packet size we can receive from serial. We can however
  transmit more than this */
-#define MAX_PACKET_SIZE 6
+#define MAX_PACKET_SIZE 7
 
 /* Number of samples we support, i.e., dataBuffer size */
 static unsigned short numSamples;
@@ -55,7 +55,8 @@ static unsigned char triggerLevel;
 
 /* Auto-trigger samples. If we don't trigger and we reach this number of
  samples without triggerting, then we trigger */
-static unsigned short autoTrigSamples;
+static unsigned char autoTrigSamples;
+static unsigned char autoTrigCount;
 
 /* Number of holdoff samples. This is the number of samples we ignore
  when we finish filling a buffer and before starting to look for trigger
@@ -76,6 +77,7 @@ static byte gflags;
 #define BYTE_FLAG_CONVERSIONDONE  (1<<2) /* Conversion done flag */
 #define BYTE_FLAG_INVERTTRIGGER   (1<<3) /* Trigger is inverted (negative edge) */
 #define BYTE_FLAG_STOREDATA       (1<<4) /* Internal flag - store data in buffer */
+#define BYTE_FLAG_DUALCHANNEL     (1<<5) /* Dual-channel enabled */
 
 #define BIT(x) (1<<x)
 
@@ -131,7 +133,8 @@ void setup()
 	adcref = 0x0; // Default 
 	dataBuffer=NULL;
 	triggerLevel=0;
-	autoTrigSamples = 256;
+	autoTrigSamples = 255;
+	autoTrigCount = 0;
 	holdoffSamples = 0;
 
 	Serial.begin(BAUD_RATE);
@@ -190,6 +193,10 @@ static void process_packet(unsigned char command, unsigned char *buf, unsigned s
 		prescale = buf[0] & 0x7;
 		setup_adc();
 		break;
+	case COMMAND_SET_AUTOTRIG:
+		autoTrigSamples = buf[0];
+		autoTrigCount = 0; // Reset.
+		break;
 	case COMMAND_SET_SAMPLES:
 		set_num_samples((unsigned short)buf[0]<<8 | buf[1]);
 		/* No break - so we reply with parameters */
@@ -200,6 +207,7 @@ static void process_packet(unsigned char command, unsigned char *buf, unsigned s
 		buf[3] = prescale;
 		buf[4] = (numSamples >> 8);
 		buf[5] = numSamples & 0xff;
+		buf[6] = gflags;
 		send_packet(COMMAND_PARAMETERS_REPLY, buf, 6);
 		break;
 	case COMMAND_SET_TRIGINVERT:
@@ -289,11 +297,8 @@ void loop() {
 ISR(ADC_vect)
 {
 	static unsigned char last=0;
-	static unsigned short autoTrigCount=0;
 	static unsigned char holdoff;
 	register byte flags = gflags;
-
-	//digitalWrite(sampleFreqPin,1);
 
 	if (holdoff>0) {
 		holdoff--;
@@ -302,7 +307,7 @@ ISR(ADC_vect)
 
 	if (!(flags & BYTE_FLAG_TRIGGERED) && triggerLevel>0) {
 
-		if (autoTrigCount >= autoTrigSamples ) {
+		if (autoTrigCount>0 && autoTrigCount >= autoTrigSamples ) {
 			flags |= BYTE_FLAG_TRIGGERED;
 		} else {
 
@@ -324,7 +329,6 @@ ISR(ADC_vect)
 
 		if (flags & BYTE_FLAG_STARTCONVERSION && dataBufferPtr==0) {
 			flags |= BYTE_FLAG_STOREDATA;
-			//digitalWrite(ledPin,1);
 		}
 
 		if (flags & BYTE_FLAG_STOREDATA) {
@@ -340,9 +344,6 @@ ISR(ADC_vect)
 				flags &= ~BYTE_FLAG_STARTCONVERSION;
 			}
 
-			//if (flags & BYTE_FLAG_CONVERSIONDONE)
-			//	digitalWrite(ledPin,0);
-
 			flags &= ~BYTE_FLAG_STOREDATA;
 			flags &= ~BYTE_FLAG_TRIGGERED;
 
@@ -351,7 +352,6 @@ ISR(ADC_vect)
 			dataBufferPtr=0;
 		}
 	}
-	//digitalWrite(sampleFreqPin,0);
 	gflags=flags;
 }
 

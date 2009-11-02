@@ -149,6 +149,16 @@ gboolean trigger_toggle_changed(GtkWidget *widget)
 	return TRUE;
 }
 
+gboolean trigger_single_shot(GtkWidget *widget)
+{
+	GtkWidget*          gtk_dialog_new_with_buttons         (const gchar *title,
+                                                         GtkWindow *parent,
+                                                         GtkDialogFlags flags,
+                                                         const gchar *first_button_text,
+                                                         ...);
+	return TRUE;
+}
+
 int help(char*cmd)
 {
 	printf("Usage: %s serialport\n\n",cmd);
@@ -158,9 +168,21 @@ int help(char*cmd)
 
 int main(int argc,char **argv)
 {
-	GtkWidget*scale_zoom;
-	gtk_init(&argc,&argv);
+	GtkWidget*scale_zoom,*button;
+	// Trying to overcome a bug..
+	int g_argc = 1;
+	char **g_argv;
+
+	g_argv = calloc(2,sizeof(char*));
+
+	g_argv[0] = argv[0];
+	g_argv[1] = NULL;
+
+
+	gtk_init(&g_argc,(char***)&g_argv);
 	//unsigned char data[512];
+
+	free(g_argv);
 
 	if (argc<2)
 		return help(argv[0]);
@@ -230,7 +252,12 @@ int main(int argc,char **argv)
 
 	hbox = gtk_hbox_new(FALSE,4);
 	gtk_box_pack_start(GTK_BOX(vbox),hbox,TRUE,TRUE,0);
-	gtk_box_pack_start(GTK_BOX(hbox),gtk_label_new("VRef source:"),TRUE,TRUE,0);
+
+	button = gtk_button_new_with_label("Single shot");
+	g_signal_connect(G_OBJECT(button),"clicked",G_CALLBACK(&trigger_single_shot),NULL);
+
+
+	gtk_box_pack_start(GTK_BOX(hbox),button,TRUE,TRUE,0);
 	GtkWidget *tog = gtk_check_button_new_with_label("Invert trigger");
 	gtk_box_pack_start(GTK_BOX(hbox),tog,TRUE,TRUE,0);
 	g_signal_connect(G_OBJECT(tog),"toggled",G_CALLBACK(&trigger_toggle_changed),NULL);
