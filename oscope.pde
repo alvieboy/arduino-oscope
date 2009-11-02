@@ -21,6 +21,7 @@
 #include <avr/interrupt.h>
 #include "protocol.h"
 
+/* Baud rate, for communication with PC */
 #define BAUD_RATE 115200
 
 /* Our version */
@@ -36,62 +37,78 @@ enum state {
 	CKSUM
 };
 
-/* Maximum packet size we can receive from serial. We can however transmit more than this */
+/* Maximum packet size we can receive from serial. We can however
+ transmit more than this */
 #define MAX_PACKET_SIZE 6
-unsigned short numSamples;
 
-unsigned char *dataBuffer=NULL;
-unsigned short dataBufferPtr;
-unsigned char triggerLevel=0;
-unsigned char triggerFlags=0;
-unsigned short autoTrigSamples = 512;
-unsigned char holdoffSamples = 0;
+/* Number of samples we support, i.e., dataBuffer size */
+static unsigned short numSamples;
 
-/* Booleans merged */
+/* Data buffer, where we store our samples. Allocated dinamically */
+static unsigned char *dataBuffer;
 
+/* Current buffer position, used to store data on buffer */
+static unsigned short dataBufferPtr;
+
+/* Current trigger level. 0 means no trigger */
+static unsigned char triggerLevel;
+
+/* Auto-trigger samples. If we don't trigger and we reach this number of
+ samples without triggerting, then we trigger */
+static unsigned short autoTrigSamples;
+
+/* Number of holdoff samples. This is the number of samples we ignore
+ when we finish filling a buffer and before starting to look for trigger
+ again */
+static unsigned char holdoffSamples;
+
+/* Current prescaler value */
+static unsigned char prescale;
+
+/* Current ACD reference */
+static unsigned char adcref;
+
+/* Current flags. See defines below */
 static byte gflags;
 
-#define BYTE_FLAG_TRIGGERED       (1<<0)
-#define BYTE_FLAG_STARTCONVERSION (1<<1)
-#define BYTE_FLAG_CONVERSIONDONE  (1<<2)
-#define BYTE_FLAG_INVERTTRIGGER   (1<<3)
-#define BYTE_FLAG_STOREDATA       (1<<4)
+#define BYTE_FLAG_TRIGGERED       (1<<0) /* Signal is triggered */
+#define BYTE_FLAG_STARTCONVERSION (1<<1) /* Request conversion to start */
+#define BYTE_FLAG_CONVERSIONDONE  (1<<2) /* Conversion done flag */
+#define BYTE_FLAG_INVERTTRIGGER   (1<<3) /* Trigger is inverted (negative edge) */
+#define BYTE_FLAG_STOREDATA       (1<<4) /* Internal flag - store data in buffer */
 
 #define BIT(x) (1<<x)
 
 const int ledPin = 13;
 const int sampleFreqPin = 2;
 
-unsigned char prescale = BIT(ADPS0)|BIT(ADPS1)|BIT(ADPS2);
-unsigned char adcref = 0x3; // Default internal 1.1 vref
 
-void setup_adc()
+static void setup_adc()
 {
 	ADCSRA = 0;
 	ADCSRB = 0; // Free-running mode
 	// DIDR0 = ~1; // Enable only first analog input
-	ADMUX = 0x20; // internal 1.1v reference, left-aligned, channel 0
+	ADMUX = 0x20; // left-aligned, channel 0
 	ADMUX |= (adcref<<(REFS0-1)); // internal 1.1v reference, left-aligned, channel 0
 
-	PRR &= ~BIT(PRADC);
+	PRR &= ~BIT(PRADC); /* Disable ADC power reduction */
 	ADCSRA = BIT(ADIE)|BIT(ADEN)|BIT(ADSC)|BIT(ADATE)|prescale; // Start conversion, enable autotrigger
-
 }
 
-void start_sampling()
+static void start_sampling()
 {
 	sei();
 	gflags &= ~BYTE_FLAG_CONVERSIONDONE;
 	gflags |= BYTE_FLAG_STARTCONVERSION;
 }
 
-void adc_set_frequency(unsigned char divider)
+static void adc_set_frequency(unsigned char divider)
 {
 	ADCSRA &= ~0x7;
 	ADCSRA |= (divider & 0x7);
 }
 
-void set_num_samples(unsigned short num)
+static void set_num_samples(unsigned short num)
 {
 	if (num>1024)
 		return;
@@ -107,8 +124,16 @@ void set_num_samples(unsigned short num)
 
 	sei();
 }
+
 void setup()
 {
+	prescale = BIT(ADPS0)|BIT(ADPS1)|BIT(ADPS2);
+	adcref = 0x0; // Default 
+	dataBuffer=NULL;
+	triggerLevel=0;
+	autoTrigSamples = 256;
+	holdoffSamples = 0;
+
 	Serial.begin(BAUD_RATE);
 	pinMode(ledPin,OUTPUT);
 	pinMode(sampleFreqPin,OUTPUT);
@@ -117,7 +142,7 @@ void setup()
 	set_num_samples(962);
 }
 
-void send_packet(unsigned char command, unsigned char *buf, unsigned short size)
+static void send_packet(unsigned char command, unsigned char *buf, unsigned short size)
 {
 	unsigned char cksum=command;
 	unsigned short i;
@@ -137,7 +162,7 @@ void send_packet(unsigned char command, unsigned char *buf, unsigned short size)
 }
 
 
-void process_packet(unsigned char command, unsigned char *buf, unsigned short size)
+static void process_packet(unsigned char command, unsigned char *buf, unsigned short size)
 {
 	switch (command) {
 	case COMMAND_PING:
@@ -191,7 +216,7 @@ void process_packet(unsigned char command, unsigned char *buf, unsigned short si
 }
 
 
-void process(unsigned char bIn)
+static void process(unsigned char bIn)
 {
 	static unsigned char pBuf[MAX_PACKET_SIZE];
 	static unsigned char cksum;
@@ -244,8 +269,6 @@ void process(unsigned char bIn)
 		st = SIZE;
 	}
 }
-
-
 
 void loop() {
 	int bIn;
