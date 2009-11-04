@@ -22,6 +22,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+#include "../protocol.h"
 
 GtkWidget *window;
 GdkPixbuf *pixbuf;
@@ -35,7 +36,11 @@ GtkWidget *scale_trigger;
 GtkWidget *scale_holdoff;
 GtkWidget *combo_prescaler;
 GtkWidget *combo_vref;
+GtkWidget *shot_button;
+GtkWidget *freeze_button;
+
 unsigned short numSamples;
+static gboolean frozen=FALSE;
 
 const unsigned long arduino_freq = 16000000; // 16 MHz
 
@@ -55,11 +60,14 @@ void scope_got_parameters(unsigned char triggerLevel,
 						  unsigned char holdoffSamples,
 						  unsigned char adcref,
 						  unsigned char prescale,
-						  unsigned short numS)
+						  unsigned short numS,
+						  unsigned char flags)
 {
 	numSamples=numS;
 	gtk_widget_set_size_request(image,numS,256);
 	scope_display_set_samples(image,numS);
+	printf("DUAL: %d\n",!!(flags & FLAG_DUAL_CHANNEL));
+	scope_display_set_dual(image,!!(flags & FLAG_DUAL_CHANNEL));
 	gtk_range_set_value(GTK_RANGE(scale_trigger),triggerLevel);
 	gtk_range_set_value(GTK_RANGE(scale_holdoff),holdoffSamples);
 
@@ -142,21 +150,74 @@ gboolean vref_changed(GtkWidget *widget)
 	return TRUE;
 }
 
-gboolean trigger_toggle_changed(GtkWidget *widget)
+void trigger_toggle_changed(GtkWidget *widget)
 {
 	gboolean active = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
 	serial_set_trigger_invert(active);
-	return TRUE;
+}
+
+void dual_toggle_changed(GtkWidget *widget)
+{
+	gboolean active = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
+	serial_set_dual_channel(active);
+}
+
+void cancel_trigger(GtkDialog *widget)
+{
+	gtk_widget_destroy(GTK_WIDGET(widget));
+}
+
+void close_trigger(GtkWidget *widget)
+{
+	printf("Done\n");
+}
+
+void done_trigger(void*data)
+{
+	GtkWidget*dialog=GTK_WIDGET(data);
+	gtk_widget_destroy(dialog);
+}
+
+void set_frozen(gboolean yes)
+{
+	frozen=yes;
+	if (frozen) {
+		gtk_button_set_label(GTK_BUTTON(freeze_button),"Unfreeze");
+	}
+	else
+		gtk_button_set_label(GTK_BUTTON(freeze_button),"Freeze");
+}
+
+void freeze_unfreeze(GtkWidget *widget)
+{
+	serial_freeze_unfreeze(!frozen);
+	if (frozen) {
+		serial_set_oneshot( NULL, NULL );
+		set_frozen(FALSE);
+	} else {
+		set_frozen(TRUE);
+	}
 }
 
 gboolean trigger_single_shot(GtkWidget *widget)
 {
-/*	GtkWidget*          gtk_dialog_new_with_buttons         (const gchar *title,
-                                                         GtkWindow *parent,
-                                                         GtkDialogFlags flags,
-                                                         const gchar *first_button_text,
-														 ...);
-                                                         */
+	GtkWidget *dialog= gtk_dialog_new_with_buttons("Waiting for trigger...",
+												   GTK_WINDOW(window),
+												   GTK_DIALOG_MODAL|GTK_DIALOG_DESTROY_WITH_PARENT,
+												   GTK_STOCK_CANCEL,
+												   GTK_RESPONSE_REJECT,
+												   NULL);
+
+	GtkWidget *l = gtk_label_new("Waiting for trigger....");
+	gtk_box_pack_start(GTK_BOX(GTK_DIALOG(dialog)->vbox),l,TRUE,TRUE,0);
+	g_signal_connect(G_OBJECT(dialog),"close",G_CALLBACK(&close_trigger),NULL);
+	g_signal_connect(G_OBJECT(dialog),"response",G_CALLBACK(&cancel_trigger),NULL);
+
+	gtk_widget_show_all(dialog);
+
+	set_frozen(TRUE);
+	serial_set_oneshot( done_trigger, dialog );
+
 	return TRUE;
 }
 
@@ -169,21 +230,9 @@ int help(char*cmd)
 
 int main(int argc,char **argv)
 {
-	GtkWidget*scale_zoom,*button;
-	// Trying to overcome a bug..
-	int g_argc = 1;
-	char **g_argv;
+	GtkWidget*scale_zoom;
 
-	g_argv = calloc(2,sizeof(char*));
-
-	g_argv[0] = argv[0];
-	g_argv[1] = NULL;
-
-
-	gtk_init(&g_argc,(char***)&g_argv);
-	//unsigned char data[512];
-
-	free(g_argv);
+	gtk_init(&argc,&argv);
 
 	if (argc<2)
 		return help(argv[0]);
@@ -254,17 +303,22 @@ int main(int argc,char **argv)
 	hbox = gtk_hbox_new(FALSE,4);
 	gtk_box_pack_start(GTK_BOX(vbox),hbox,TRUE,TRUE,0);
 
-	button = gtk_button_new_with_label("Single shot");
-	g_signal_connect(G_OBJECT(button),"clicked",G_CALLBACK(&trigger_single_shot),NULL);
+	shot_button = gtk_button_new_with_label("Single shot");
+	g_signal_connect(G_OBJECT(shot_button),"clicked",G_CALLBACK(&trigger_single_shot),NULL);
+	gtk_box_pack_start(GTK_BOX(hbox),shot_button,TRUE,TRUE,0);
 
+	freeze_button = gtk_button_new_with_label("Freeze");
+	g_signal_connect(G_OBJECT(freeze_button),"clicked",G_CALLBACK(&freeze_unfreeze),NULL);
+	gtk_box_pack_start(GTK_BOX(hbox),freeze_button,TRUE,TRUE,0);
 
-	gtk_box_pack_start(GTK_BOX(hbox),button,TRUE,TRUE,0);
 	GtkWidget *tog = gtk_check_button_new_with_label("Invert trigger");
 	gtk_box_pack_start(GTK_BOX(hbox),tog,TRUE,TRUE,0);
 	g_signal_connect(G_OBJECT(tog),"toggled",G_CALLBACK(&trigger_toggle_changed),NULL);
 
+	GtkWidget *dual_check_button = gtk_check_button_new_with_label("Dual Channel");
+	gtk_box_pack_start(GTK_BOX(hbox),dual_check_button,TRUE,TRUE,0);
+	g_signal_connect(G_OBJECT(dual_check_button),"toggled",G_CALLBACK(&dual_toggle_changed),NULL);
 
-	//scope_display_set_data(image,data,sizeof(data));
 
 	gtk_widget_show_all(window);
 	gtk_widget_set_size_request(image,512,256);

@@ -71,6 +71,7 @@
   * COMMAND_SET_TRIGINVERT 0x44
     > Payload size: 1
     > Since: v1.2
+    > Removed in v1.4. See CAPTURE_FLAGS.
      
       Set invert trigger flag. Payload byte 0 depicts if trigger is not 
       inverted (a 0 value) or if it is inverted (a 1 value).
@@ -113,7 +114,7 @@
       ADC sampled values).
       
   * COMMAND_PARAMETERS_REPLY 0x87
-    > Payload size: 6 (v1.2)
+    > Payload size: 6 (v1.2), 7 (v1.4)
     > Since: v1.2
     
       Current configured values. Payload will contain the following values
@@ -124,6 +125,7 @@
         2 - ADC reference
         3 - ACD prescaler
         4,5 - Number of samples (NUM_SAMPLES). Big-endian.
+        6 (v1.4) - Capture flags
         
   * COMMAND_PONG           0xE3
     > Payload size: variable
@@ -142,5 +144,14 @@
     > Since: v1.3
     
       Set number of arduino samples. Arduino will reply with COMMAND_PARAMETERS_REPLY.
+
+  * COMMAND_SET_FLAGS    0x50
+    > Payload size: 1
+    > Since: v1.1
+    
+      Set capture flags. Will reply with COMMAND_PARAMETERS_REPLY.
+      Bitmap of following values:
+        bit 0 - Invert trigger
+        bit 1 - Set dual-channel
 
  

@@ -21,6 +21,10 @@
 
 #include <gtk/gtk.h>
 
+#ifdef HAVE_DFT
+#include <fftw3.h>
+#endif
+
 typedef struct _ScopeDisplay ScopeDisplay;
 typedef struct _ScopeDisplayClass       ScopeDisplayClass;
 
@@ -32,7 +36,15 @@ struct _ScopeDisplay
 	unsigned short numSamples;
 	unsigned char tlevel;
 	unsigned int zoom;
+	gboolean dual;
 	double freq;
+#ifdef HAVE_DFT
+	double *dbuf_real;
+	double *dbuf_output;
+	enum { MODE_NORMAL,MODE_DFT } mode;
+	fftw_plan plan;
+#endif
+
 };
 
 struct _ScopeDisplayClass
@@ -53,5 +65,6 @@ void scope_display_set_trigger_level(GtkWidget *scope, unsigned char level);
 void scope_display_set_zoom(GtkWidget *scope, unsigned int zoom);
 void scope_display_set_samples(GtkWidget *scope, unsigned short numSamples);
 void scope_display_set_sample_freq(GtkWidget *scope, double freq);
+void scope_display_set_dual(GtkWidget *scope, gboolean);
 
 #endif

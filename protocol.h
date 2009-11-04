@@ -19,6 +19,9 @@
 #ifndef __PROTOCOL_H__
 #define __PROTOCOL_H__
 
+/* Our version */
+#define PROTOCOL_VERSION_HIGH 0x01
+#define PROTOCOL_VERSION_LOW 0x04
 
 /* Serial commands we support */
 #define COMMAND_PING           0x3E
@@ -26,16 +29,19 @@
 #define COMMAND_START_SAMPLING 0x41
 #define COMMAND_SET_TRIGGER    0x42
 #define COMMAND_SET_HOLDOFF    0x43
-#define COMMAND_SET_TRIGINVERT 0x44
 #define COMMAND_SET_VREF       0x45
 #define COMMAND_SET_PRESCALER  0x46
 #define COMMAND_GET_PARAMETERS 0x47
 #define COMMAND_SET_SAMPLES    0x48
 #define COMMAND_SET_AUTOTRIG   0x49
+#define COMMAND_SET_FLAGS      0x50
 #define COMMAND_VERSION_REPLY  0x80
 #define COMMAND_BUFFER_SEG     0x81
 #define COMMAND_PARAMETERS_REPLY 0x87
 #define COMMAND_PONG           0xE3
 #define COMMAND_ERROR          0xFF
+
+#define FLAG_INVERT_TRIGGER  (1<<0)
+#define FLAG_DUAL_CHANNEL    (1<<1)
 
 #endif

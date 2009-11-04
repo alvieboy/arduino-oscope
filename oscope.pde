@@ -24,10 +24,6 @@
 /* Baud rate, for communication with PC */
 #define BAUD_RATE 115200
 
-/* Our version */
-#define VERSION_HIGH 0x01
-#define VERSION_LOW 0x03
-
 /* Serial processor state */
 enum state {
 	SIZE,
@@ -72,18 +68,19 @@ static unsigned char adcref;
 /* Current flags. See defines below */
 static byte gflags;
 
-#define BYTE_FLAG_TRIGGERED       (1<<0) /* Signal is triggered */
-#define BYTE_FLAG_STARTCONVERSION (1<<1) /* Request conversion to start */
-#define BYTE_FLAG_CONVERSIONDONE  (1<<2) /* Conversion done flag */
-#define BYTE_FLAG_INVERTTRIGGER   (1<<3) /* Trigger is inverted (negative edge) */
+#define BYTE_FLAG_TRIGGERED       (1<<7) /* Signal is triggered */
+#define BYTE_FLAG_STARTCONVERSION (1<<6) /* Request conversion to start */
+#define BYTE_FLAG_CONVERSIONDONE  (1<<5) /* Conversion done flag */
 #define BYTE_FLAG_STOREDATA       (1<<4) /* Internal flag - store data in buffer */
-#define BYTE_FLAG_DUALCHANNEL     (1<<5) /* Dual-channel enabled */
+
+#define BYTE_FLAG_DUALCHANNEL     FLAG_DUAL_CHANNEL /* Dual-channel enabled */
+#define BYTE_FLAG_INVERTTRIGGER   FLAG_INVERT_TRIGGER /* Trigger is inverted (negative edge) */
 
 #define BIT(x) (1<<x)
 
 const int ledPin = 13;
 const int sampleFreqPin = 2;
-
+const int pwmPin = 9;
 
 static void setup_adc()
 {
@@ -141,7 +138,10 @@ void setup()
 	pinMode(ledPin,OUTPUT);
 	pinMode(sampleFreqPin,OUTPUT);
 	setup_adc();
-	
+
+	/* Simple test for PWM output */
+	analogWrite(pwmPin,127);
+
 	set_num_samples(962);
 }
 
@@ -164,6 +164,17 @@ static void send_packet(unsigned char command, unsigned char *buf, unsigned shor
 	Serial.write(cksum);
 }
 
+static void send_parameters(unsigned char*buf)
+{
+	buf[0] = triggerLevel;
+	buf[1] = holdoffSamples;
+	buf[2] = adcref;
+	buf[3] = prescale;
+	buf[4] = (numSamples >> 8);
+	buf[5] = numSamples & 0xff;
+	buf[6] = gflags;
+	send_packet(COMMAND_PARAMETERS_REPLY, buf, 7);
+}
 
 static void process_packet(unsigned char command, unsigned char *buf, unsigned short size)
 {
@@ -172,8 +183,8 @@ static void process_packet(unsigned char command, unsigned char *buf, unsigned s
 		send_packet(COMMAND_PONG, buf, size);
 		break;
 	case COMMAND_GET_VERSION:
-		buf[0] = VERSION_HIGH;
-		buf[1] = VERSION_LOW;
+		buf[0] = PROTOCOL_VERSION_HIGH;
+		buf[1] = PROTOCOL_VERSION_LOW;
 		send_packet(COMMAND_VERSION_REPLY, buf, 2);
 		break;
 	case COMMAND_START_SAMPLING:
@@ -201,21 +212,13 @@ static void process_packet(unsigned char command, unsigned char *buf, unsigned s
 		set_num_samples((unsigned short)buf[0]<<8 | buf[1]);
 		/* No break - so we reply with parameters */
 	case COMMAND_GET_PARAMETERS:
-		buf[0] = triggerLevel;
-		buf[1] = holdoffSamples;
-		buf[2] = adcref;
-		buf[3] = prescale;
-		buf[4] = (numSamples >> 8);
-		buf[5] = numSamples & 0xff;
-		buf[6] = gflags;
-		send_packet(COMMAND_PARAMETERS_REPLY, buf, 6);
+		send_parameters(buf);
 		break;
-	case COMMAND_SET_TRIGINVERT:
-		if (buf[0]==0) {
-			gflags &= ~BYTE_FLAG_INVERTTRIGGER;
-		} else {
-			gflags |= BYTE_FLAG_INVERTTRIGGER;
-		}
+	case COMMAND_SET_FLAGS:
+		gflags &= ~(BYTE_FLAG_INVERTTRIGGER|BYTE_FLAG_DUALCHANNEL);
+		buf[0] &= BYTE_FLAG_INVERTTRIGGER|BYTE_FLAG_DUALCHANNEL;
+		gflags |= buf[0];
+		send_parameters(buf);
 		break;
 	default:
 		send_packet(COMMAND_ERROR,NULL,0);
@@ -316,7 +319,8 @@ ISR(ADC_vect)
 			} else if ( flags&BYTE_FLAG_INVERTTRIGGER && ADCH<=triggerLevel && last>triggerLevel) {
 				flags |= BYTE_FLAG_TRIGGERED;
 			} else {
-				autoTrigCount++;
+				if (autoTrigSamples>0)
+					autoTrigCount++;
 			}
 		}
 	} else {
@@ -332,6 +336,13 @@ ISR(ADC_vect)
 		}
 
 		if (flags & BYTE_FLAG_STOREDATA) {
+
+			 // Switch channel.
+			if (flags & BYTE_FLAG_DUALCHANNEL)
+				ADMUX = ADMUX ^ 1;
+			else
+				ADMUX &= 0xfe;
+
 			dataBuffer[dataBufferPtr] = ADCH;
 		}
 		dataBufferPtr++;
@@ -346,7 +357,8 @@ ISR(ADC_vect)
 
 			flags &= ~BYTE_FLAG_STOREDATA;
 			flags &= ~BYTE_FLAG_TRIGGERED;
-
+            // Reset muxer
+			ADMUX &= 0xfe;
 			holdoff=holdoffSamples;
 			autoTrigCount=0;
 			dataBufferPtr=0;

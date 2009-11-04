@@ -27,6 +27,12 @@ static void scope_display_init (ScopeDisplay *scope)
 {
 	scope->zoom=1;
 	scope->dbuf = NULL;
+	scope->dual = FALSE;
+#ifdef HAVE_DFT
+	scope->mode = MODE_NORMAL;
+	scope->dbuf_real = NULL;
+	scope->dbuf_output = NULL;
+#endif
 }
 
 GtkWidget *scope_display_new (void)
@@ -92,46 +98,93 @@ static void draw(GtkWidget *scope, cairo_t *cr)
 
 	cairo_set_source_rgb( cr, 0, 255, 0);
 
-	if (NULL!=self->dbuf) {
+#ifdef HAVE_DFT
+
+	int v;
+	if (NULL!=self->dbuf_output) {
 		for (i=0; i<self->numSamples/self->zoom; i++) {
 			cairo_move_to(cr,lx,ly);
+			v = self->dbuf_output[i]/16;
+			if (v<0)
+				v=0;
+			if (v>255)
+				v=255;
 			lx=scope->allocation.x + i*self->zoom;
-			ly=scope->allocation.y+scope->allocation.height - self->dbuf[i];
+			ly=scope->allocation.y+scope->allocation.height - v;
 			cairo_line_to(cr,lx,ly);
 		}
 		cairo_stroke (cr);
 	}
 
-	cairo_set_font_size (cr, 12);
-	cairo_set_source_rgb (cr, 0.5,1.0,1.0);
-	cairo_select_font_face (cr, "Helvetica",
-							CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+#else
+	if (NULL!=self->dbuf) {
 
-	double tdiv = (double)self->numSamples*100.0 / self->freq;
-	sprintf(text,"tDiv: %.02fms", tdiv / (double)self->zoom);
-	cairo_font_extents(cr, &fe);
-	cairo_text_extents(cr, text, &te);
+		if (!self->dual) {
+			for (i=0; i<self->numSamples/self->zoom; i++) {
+				cairo_move_to(cr,lx,ly);
+				lx=scope->allocation.x + i*self->zoom;
+				ly=scope->allocation.y+scope->allocation.height - self->dbuf[i];
+				cairo_line_to(cr,lx,ly);
+			}
+			cairo_stroke (cr);
+		} else {
+			for (i=0; i<self->numSamples/self->zoom; i+=2) {
+				cairo_move_to(cr,lx,ly);
+				lx=scope->allocation.x + i*self->zoom;
+				ly=scope->allocation.y+scope->allocation.height - self->dbuf[i];
+				cairo_line_to(cr,lx,ly);
+			}
+			cairo_stroke (cr);
+			cairo_set_source_rgb(cr,255,255,0);
+			lx=scope->allocation.x+1;
+			ly=scope->allocation.y+scope->allocation.height;
 
-	vtextpos = scope->allocation.y + scope->allocation.height - te.height;
+			for (i=1; i<self->numSamples/self->zoom; i+=2) {
+				cairo_move_to(cr,lx,ly);
+				lx=scope->allocation.x + i*self->zoom;
+				ly=scope->allocation.y+scope->allocation.height - self->dbuf[i];
+				cairo_line_to(cr,lx,ly);
+			}
+			cairo_stroke (cr);
+			
+		}
+	}
 
-	cairo_move_to(cr,
-				  scope->allocation.x + scope->allocation.width - te.width - 10,
-				  vtextpos
-				 );
-	cairo_show_text(cr, text);
+#endif
 
+		cairo_set_font_size (cr, 12);
+		cairo_set_source_rgb (cr, 0.5,1.0,1.0);
+		cairo_select_font_face (cr, "Helvetica",
+								CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
 
-	sprintf(text,"fMax: %.02fHz", self->freq/2);
-	cairo_text_extents(cr, text, &te);
+		double tdiv = (double)self->numSamples*100.0 / self->freq;
+		sprintf(text,"tDiv: %.02fms", tdiv / (double)self->zoom);
+		cairo_font_extents(cr, &fe);
+		cairo_text_extents(cr, text, &te);
 
-	vtextpos -= (te.height + 4);
+		vtextpos = scope->allocation.y + scope->allocation.height - te.height;
 
-	cairo_move_to(cr,
-				  scope->allocation.x + scope->allocation.width - te.width - 10,
-				  vtextpos
-				 );
-	cairo_show_text(cr, text);
-}
+		cairo_move_to(cr,
+					  scope->allocation.x + scope->allocation.width - te.width - 10,
+					  vtextpos
+					 );
+		cairo_show_text(cr, text);
+
+		if (self->dual) {
+			sprintf(text,"fMax/chan: %.02fHz", self->freq/4);
+		} else {
+			sprintf(text,"fMax: %.02fHz", self->freq/2);
+		}
+		cairo_text_extents(cr, text, &te);
+
+		vtextpos -= (te.height + 4);
+
+		cairo_move_to(cr,
+					  scope->allocation.x + scope->allocation.width - te.width - 10,
+					  vtextpos
+					 );
+		cairo_show_text(cr, text);
+	}
 
 void scope_display_set_zoom(GtkWidget *scope, unsigned int zoom)
 {
@@ -152,17 +205,50 @@ void scope_display_set_samples(GtkWidget *scope, unsigned short numSamples)
 		g_free(self->dbuf);
 	self->dbuf = (unsigned char*)g_malloc(numSamples);
 	self->numSamples = numSamples;
+#ifdef HAVE_DFT
+	if(self->dbuf_real)
+		g_free(self->dbuf_real);
+	self->dbuf_real = g_malloc(numSamples*sizeof(double));
+
+	if(self->dbuf_output)
+		g_free(self->dbuf_output);
+	self->dbuf_output = g_malloc(numSamples*sizeof(double));
+
+	self->plan = fftw_plan_r2r_1d(numSamples, self->dbuf_real, self->dbuf_output,
+								  FFTW_REDFT01, 0);
+
+#endif
+
+
 }
 
 void scope_display_set_data(GtkWidget *scope, unsigned char *data, size_t size)
 {
 	ScopeDisplay *self = SCOPE_DISPLAY(scope);
+	unsigned char *d = data;
+#ifdef HAVE_DFT
+	unsigned long sum=0;
+	double dc;
+#endif
 
 	int i;
 	for (i=0; i<size && i<self->numSamples; i++) {
-		self->dbuf[i] = *data;
-		data++;
+		self->dbuf[i] = *d;
+#ifdef HAVE_DFT
+		sum+=*d;
+#endif
+		d++;
 	}
+#ifdef HAVE_DFT
+	d = data;
+	dc = (double)sum / (double)self->numSamples;
+
+	for (i=0; i<size && i<self->numSamples; i++) {
+		self->dbuf_real[i] = ((double)*d ) - dc;
+		d++;
+	}
+	fftw_execute(self->plan);
+#endif
 	gtk_widget_queue_draw(scope);
 }
 
@@ -174,6 +260,14 @@ void scope_display_set_trigger_level(GtkWidget *scope, unsigned char level)
 	gtk_widget_queue_draw(scope);
 }
 
+void scope_display_set_dual(GtkWidget *scope, gboolean value)
+{
+	ScopeDisplay *self = SCOPE_DISPLAY(scope);
+
+	self->dual=value;
+	gtk_widget_queue_draw(scope);
+
+}
 static gboolean scope_display_expose(GtkWidget *scope, GdkEventExpose *event)
 {
 	cairo_t *cr;

@@ -28,20 +28,28 @@
 
 static int fd = -1;
 
-GIOChannel *channel;
-gint watcher;
+static GIOChannel *channel;
+static gint watcher;
+static gboolean in_request;
+static gboolean freeze = FALSE;
+static gboolean delay_request = FALSE;
+static gboolean is_trigger_invert;
+static gboolean is_dual_channel;
 
 #ifdef STANDALONE
 GMainLoop *loo;
 #endif
 
 static void (*sdata)(unsigned char *data,size_t size);
+static void (*oneshot_cb)(void*) = NULL;
+void *oneshot_cb_data;
 
 extern void scope_got_parameters(unsigned char triggerLevel,
 								 unsigned char holdoffSamples,
 								 unsigned char adcref,
 								 unsigned char prescale,
-								 unsigned short numSamples);
+								 unsigned short numSamples,
+								 unsigned char flags);
 
 void sendchar(int i) {
 	char t = i &0xff;
@@ -97,7 +105,20 @@ static enum mystate state = PING;
 void process_packet(unsigned char command, unsigned char *buf, unsigned short size)
 {
 	unsigned short ns;
+
+	if (command==COMMAND_PARAMETERS_REPLY) {
+		ns = buf[4] << 8;
+		ns += buf[5];
+
+		is_trigger_invert = buf[6] & FLAG_INVERT_TRIGGER;
+		is_dual_channel = buf[6] & FLAG_DUAL_CHANNEL;
+
+		scope_got_parameters(buf[0],buf[1],buf[2],buf[3],ns,buf[6]);
+		printf("Num samples: %d %d %d \n", ns, buf[4],buf[5]);
+	}
+
 	switch(state) {
+
 	case PING:
 		if (command==COMMAND_PONG) {
 			printf("Got ping reply\n");
@@ -115,11 +136,9 @@ void process_packet(unsigned char command, unsigned char *buf, unsigned short si
 			printf("Invalid packet %d\n",command);
 		}
 		break;
+
 	case GETPARAMETERS:
-		ns = buf[4] << 8;
-		ns += buf[5];
-		scope_got_parameters(buf[0],buf[1],buf[2],buf[3],ns);
-		printf("Num samples: %d %d %d \n", ns, buf[4],buf[5]);
+		in_request=TRUE;
 		send_packet(COMMAND_START_SAMPLING,NULL,0);
 
 		state = SAMPLING;
@@ -127,7 +146,16 @@ void process_packet(unsigned char command, unsigned char *buf, unsigned short si
 
 	case SAMPLING:
 		sdata(buf, size);
-		send_packet(COMMAND_START_SAMPLING,NULL,0);
+		if ( oneshot_cb && ! delay_request) {
+			in_request=FALSE;
+			oneshot_cb(oneshot_cb_data);
+		} else{
+			if (!freeze) {
+				send_packet(COMMAND_START_SAMPLING,NULL,0);
+				in_request=TRUE;
+			}
+		} 
+		delay_request=FALSE;
 		state=SAMPLING;
 
 		break;
@@ -229,11 +257,12 @@ int real_serial_init(char *device)
 	struct termios termset;
 	GError *error = NULL;
 
-	fd = open(device, O_RDWR|O_NONBLOCK);
+	fd = open(device, O_RDWR);
 	if (fd<0) {
 		perror("open");
 		return -1;
 	}
+
 	fprintf(stderr,"Opened device '%s'\n", device);
 
 	tcgetattr(fd, &termset);
@@ -271,6 +300,10 @@ int real_serial_init(char *device)
 	}
 
 	fprintf(stderr,"Channel set up OK\n");
+
+	in_request = FALSE;
+	delay_request = FALSE;
+
 	return 0;
 
 }
@@ -285,10 +318,27 @@ void serial_set_vref(unsigned char vref)
 	//	printf("Setting VREF %d\n", vref);
 	send_packet(COMMAND_SET_VREF,&vref,1);
 }
+
+static void set_flags()
+{
+	unsigned char c=0;
+	if (is_dual_channel)
+		c|=FLAG_DUAL_CHANNEL;
+	if (is_trigger_invert)
+		c|=FLAG_INVERT_TRIGGER;
+	send_packet(COMMAND_SET_FLAGS,&c,1);
+}
+
+
 void serial_set_trigger_invert(gboolean active)
 {
-	unsigned char a = active ? 1:0;
-	send_packet(COMMAND_SET_TRIGINVERT,&a,1);
+	is_trigger_invert = active;
+	set_flags();
+}
+void serial_set_dual_channel(gboolean active)
+{
+	is_dual_channel = active;
+	set_flags();
 }
 
 int serial_run( void (*setdata)(unsigned char *data,size_t size))
@@ -300,6 +350,39 @@ int serial_run( void (*setdata)(unsigned char *data,size_t size))
 	return 0;
 }
 
+void serial_freeze_unfreeze(gboolean freeze)
+{
+}
+
+
+void serial_set_oneshot( void(*callback)(void*), void*data )
+{
+	unsigned char tvalue;
+	oneshot_cb = callback;
+    oneshot_cb_data = data;
+	if (oneshot_cb) {
+		tvalue=0;
+	} else {
+		tvalue=100;
+	}
+
+	send_packet(COMMAND_SET_AUTOTRIG,&tvalue,1);
+
+	if (NULL==oneshot_cb && !in_request) {
+		send_packet(COMMAND_START_SAMPLING,NULL,0);
+	} else {
+		if (in_request)
+			delay_request=TRUE;
+		else
+			send_packet(COMMAND_START_SAMPLING,NULL,0);
+	}
+}
+
+gboolean serial_in_request()
+{
+    return in_request;
+}
+
 double get_sample_frequency(unsigned long freq, unsigned long prescaler)
 {
 	unsigned long adc_clock = freq / prescaler;
@@ -307,20 +390,9 @@ double get_sample_frequency(unsigned long freq, unsigned long prescaler)
 	return fsample;
 }
 
-#ifdef STANDALONE
-int main(int argc,char**argv)
-{
-	loo = g_main_loop_new(g_main_context_new(), TRUE);
-
-	if (init(argv[1])<0)
-		return -1;
-	return serial_run();
-}
-#else
 int serial_init(gchar*name)
 {
 	if (real_serial_init(name)<0)
 		return -1;
 	return 0;
 }
-#endif
