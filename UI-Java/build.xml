@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="arduino-oscope" default="dist" basedir=".">
+    
+     <!-- java sdk home -->
+    <property name="java.home" value="" />
+    
+    <!-- cvs respository directories -->
+    <property name="src.dir" value="."/>
+    <property name="conf.dir" value="conf"/>
+    <!-- temporary directories -->
+    <property name="output.dir" value="output"/>
+    <property name="output-frontend.dir" value="output-frontend"/>
+    <property name="dist.dir" value="distribution"/>
+    
+    <!-- project information -->
+    <property name="project.name" value="arduino-oscope"/>
+    <property name="project.version" value="1-0"/>
+    <property name="jar.file" value="${project.name}.jar"/>
+    <!-- compile options -->
+    <property name="compile.debug" value="true" />
+    <property name="compile.deprecation" value="true" />
+    <property name="compile.listfiles" value="true" />
+    
+    <!-- prepares environment for compilation. -->
+    <target name="prepare" depends="" >
+        <mkdir dir="${output.dir}"/>
+        <mkdir dir="${output-frontend.dir}"/>
+        <mkdir dir="${dist.dir}"/>
+    </target>
+
+    <!-- removes dirs created for compilation process. -->
+    <target name="clean">
+        <delete dir="${output.dir}"/>
+        <delete dir="${output-frontend.dir}"/>
+        <delete dir="${dist.dir}"/>
+    </target>
+
+    <!-- compiles all source code -->
+    <target name="compile" depends="prepare">
+        <javac fork="yes" debug="${compile.debug}" deprecation="${compile.deprecation}" destdir="${output.dir}">
+            <src path="${src.dir}/com/alvie/arduino/oscope/"/>
+        </javac>
+    </target>
+    
+    <!-- compiles source code for all -->
+    <target name="compile-all" depends="prepare">
+        <javac fork="yes" debug="${compile.debug}" deprecation="${compile.deprecation}" destdir="${output.dir}">
+            <src path="${gui.dir}"/>
+            <classpath>
+                <fileset dir="${lib.dir}" includes="${libs.included},${libs.excluded}"/>
+                <fileset dir="${lib.dir}">
+                    <include name="**/*.jar"/>
+                </fileset>
+            </classpath>
+        </javac>
+    </target>
+    
+    <!-- creates jar file for web interface -->
+    <target name="dist" depends="compile">
+        <jar basedir="${output.dir}" compress="true" jarfile="${dist.dir}/${jar.file}">
+            <manifest>
+                <attribute name="Main-Class" value="com.alvie.arduino.oscope.ArduinoOscope"/>
+            </manifest>
+            <exclude name="**/*.java"/>
+        </jar>
+    </target>
+</project>
