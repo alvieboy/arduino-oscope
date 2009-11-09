@@ -45,6 +45,8 @@ public class ArduinoOscopeImpl implements Protocol.ScopeDisplayer, ChangeListene
     JSlider holdoffSlider;
     JComboBox prescaleCombo;
     JCheckBox dualChannelCheckBox;
+    JFrame frame;
+    JPanel panel;
 
     ArduinoOscopeImpl()
     {
@@ -68,7 +70,9 @@ public class ArduinoOscopeImpl implements Protocol.ScopeDisplayer, ChangeListene
         triggerSlider.setValue(triggerLevel);
         holdoffSlider.setValue(holdoffSamples);
         prescaleCombo.setSelectedIndex(7-prescale);
-        scope.setNumSamples(numSamples);
+        if(scope.setNumSamples(numSamples)) {
+            frame.pack();
+        }
         scope.setDual( isDual );
         dualChannelCheckBox.setSelected(isDual);
     }
@@ -117,7 +121,7 @@ public class ArduinoOscopeImpl implements Protocol.ScopeDisplayer, ChangeListene
 
         serialMenuListener = new SerialMenuListener();
 
-        JFrame frame = new JFrame("Arduino Oscope");
+        frame = new JFrame("Arduino Oscope");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         JMenuBar bar = new JMenuBar();
 
@@ -134,7 +138,7 @@ public class ArduinoOscopeImpl implements Protocol.ScopeDisplayer, ChangeListene
 
         scope = new ScopeDisplay();
 
-        JPanel panel = new JPanel();
+        panel = new JPanel();
         panel.setLayout(new BoxLayout(panel, BoxLayout.PAGE_AXIS));
 
         JPanel hpanel = new JPanel();

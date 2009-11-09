@@ -32,7 +32,7 @@ public class ScopeDisplay extends JComponent {
     boolean isDual;
 
     public ScopeDisplay() {
-        numSamples = 962;
+        numSamples = 962/2;
         resizeToNumSamples();
     }
 
@@ -48,14 +48,17 @@ public class ScopeDisplay extends JComponent {
         setMinimumSize(d);
         setMaximumSize(d);
         setPreferredSize(d);
+        invalidate();
     }
 
-    public void setNumSamples(int value)
+    public boolean setNumSamples(int value)
     {
         if (numSamples!=value) {
             numSamples = value;
             resizeToNumSamples();
+            return true;
         }
+        return false;
     }
 
     public void setTriggerLevel(int level)
