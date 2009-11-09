@@ -66,7 +66,15 @@ static unsigned char prescale;
 static unsigned char adcref;
 
 /* Current flags. See defines below */
-static byte gflags;
+static byte gflags = 0;
+
+static unsigned char pBuf[MAX_PACKET_SIZE];
+static unsigned char cksum;
+static unsigned int pBufPtr;
+static unsigned short pSize;
+static unsigned char command;
+static enum state st;
+
 
 #define BYTE_FLAG_TRIGGERED       (1<<7) /* Signal is triggered */
 #define BYTE_FLAG_STARTCONVERSION (1<<6) /* Request conversion to start */
@@ -124,6 +132,7 @@ static void set_num_samples(unsigned short num)
 	sei();
 }
 
+
 void setup()
 {
 	prescale = BIT(ADPS0)|BIT(ADPS1)|BIT(ADPS2);
@@ -143,6 +152,7 @@ void setup()
 	analogWrite(pwmPin,127);
 
 	set_num_samples(962);
+	st = SIZE;
 }
 
 static void send_packet(unsigned char command, unsigned char *buf, unsigned short size)
@@ -229,14 +239,6 @@ static void process_packet(unsigned char command, unsigned char *buf, unsigned s
 
 static void process(unsigned char bIn)
 {
-	static unsigned char pBuf[MAX_PACKET_SIZE];
-	static unsigned char cksum;
-	static unsigned int pBufPtr;
-	static unsigned short pSize;
-	static unsigned char command;
-	static enum state st = SIZE;
-
-
 	cksum^=bIn;
 	//Serial.write(cksum);
 
