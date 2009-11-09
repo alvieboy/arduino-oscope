@@ -4,6 +4,8 @@
      <!-- java sdk home -->
     <property name="java.home" value="" />
     
+    <property name="RXTXcomm.lib" value="lib/RXTXcomm.jar"/>
+
     <!-- cvs respository directories -->
     <property name="src.dir" value="."/>
     <property name="conf.dir" value="conf"/>
@@ -16,16 +18,22 @@
     <property name="project.name" value="arduino-oscope"/>
     <property name="project.version" value="1-0"/>
     <property name="jar.file" value="${project.name}.jar"/>
+    <property name="lib.dir" value="lib"/>
+    
     <!-- compile options -->
     <property name="compile.debug" value="true" />
     <property name="compile.deprecation" value="true" />
     <property name="compile.listfiles" value="true" />
     
+    <property name="compile-classpath" value="lib/RXTXcomm.jar"/>
     <!-- prepares environment for compilation. -->
     <target name="prepare" depends="" >
         <mkdir dir="${output.dir}"/>
         <mkdir dir="${output-frontend.dir}"/>
         <mkdir dir="${dist.dir}"/>
+        <copy todir="${output.dir}">
+        	<fileset dir="${lib.dir}"/>
+				</copy>
     </target>
 
     <!-- removes dirs created for compilation process. -->
@@ -37,31 +45,30 @@
 
     <!-- compiles all source code -->
     <target name="compile" depends="prepare">
-        <javac fork="yes" debug="${compile.debug}" deprecation="${compile.deprecation}" destdir="${output.dir}">
+        <javac fork="yes" debug="${compile.debug}" classpath="${compile-classpath}" deprecation="${compile.deprecation}" destdir="${output.dir}" target="1.5">
             <src path="${src.dir}/com/alvie/arduino/oscope/"/>
         </javac>
     </target>
     
-    <!-- compiles source code for all -->
-    <target name="compile-all" depends="prepare">
-        <javac fork="yes" debug="${compile.debug}" deprecation="${compile.deprecation}" destdir="${output.dir}">
-            <src path="${gui.dir}"/>
-            <classpath>
-                <fileset dir="${lib.dir}" includes="${libs.included},${libs.excluded}"/>
-                <fileset dir="${lib.dir}">
-                    <include name="**/*.jar"/>
-                </fileset>
-            </classpath>
-        </javac>
-    </target>
-    
-    <!-- creates jar file for web interface -->
-    <target name="dist" depends="compile">
+
+    <target name="dist" depends="compile,copy-libs">
         <jar basedir="${output.dir}" compress="true" jarfile="${dist.dir}/${jar.file}">
             <manifest>
                 <attribute name="Main-Class" value="com.alvie.arduino.oscope.ArduinoOscope"/>
+                <attribute name="Class-Path" value="RXTXcomm.jar"/>
             </manifest>
+            <include name="gnu/**"/>
+            <include name="com/alvie/**"/>
             <exclude name="**/*.java"/>
         </jar>
     </target>
+    
+		<target name="copy-libs">
+        <copy todir="distribution">
+            <fileset dir="lib">
+            	<include name="RXTXcomm.jar" />
+            </fileset>
+        </copy>
+    </target>
+
 </project>
