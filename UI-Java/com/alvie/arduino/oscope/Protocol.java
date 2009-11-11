@@ -186,6 +186,28 @@ public class Protocol implements SerialPortEventListener
 
     }
 
+    void setOneShot(boolean enable)
+    {
+        int tvalue;
+
+        if (enable) {
+            tvalue=0;
+        } else {
+            tvalue=100;
+	}
+
+	sendPacket(COMMAND_SET_AUTOTRIG,tvalue);
+
+	if (!enable && !inRequest) {
+            sendPacket(COMMAND_START_SAMPLING);
+	} else {
+            if (inRequest)
+                delayRequest=true;
+            else
+                sendPacket(COMMAND_START_SAMPLING);
+        }
+    }
+
     void setPrescaler(int prescaler)
     {
         sendPacket(COMMAND_SET_PRESCALER,prescaler);

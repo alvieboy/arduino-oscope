@@ -37,16 +37,20 @@ public class ArduinoOscopeImpl implements Protocol.ScopeDisplayer, ChangeListene
 
     SerialMenuListener serialMenuListener;
     DualChannelListener dualChannelListener;
+    InvertTriggerListener invertTriggerListener;
+    SingleShotListener singleShotListener;
 
     String current_serial_port;
 
     ScopeDisplay scope ;
     JSlider triggerSlider;
     JSlider holdoffSlider;
-    JComboBox prescaleCombo;
-    JCheckBox dualChannelCheckBox;
+    JComboBox prescaleCombo,vrefCombo;
+    JCheckBox dualChannelCheckBox,invertTriggerCheckBox;
+    JButton freezeUnfreezeButton;
     JFrame frame;
     JPanel panel;
+    JDialog waitTriggerDialog;
 
     ArduinoOscopeImpl()
     {
@@ -59,6 +63,10 @@ public class ArduinoOscopeImpl implements Protocol.ScopeDisplayer, ChangeListene
 
     public void triggerDone()
     {
+        if (null!=waitTriggerDialog) {
+            waitTriggerDialog.dispose();
+            waitTriggerDialog=null;
+        }
     }
 
     public void gotParameters(int triggerLevel,int holdoffSamples,
@@ -66,6 +74,7 @@ public class ArduinoOscopeImpl implements Protocol.ScopeDisplayer, ChangeListene
                               int flags)
     {
         boolean isDual = (flags & Protocol.FLAG_DUAL_CHANNEL) != 0;
+        boolean isInvertTrigger = (flags & Protocol.FLAG_INVERT_TRIGGER) != 0;
 
         triggerSlider.setValue(triggerLevel);
         holdoffSlider.setValue(holdoffSamples);
@@ -74,7 +83,20 @@ public class ArduinoOscopeImpl implements Protocol.ScopeDisplayer, ChangeListene
             frame.pack();
         }
         scope.setDual( isDual );
+
         dualChannelCheckBox.setSelected(isDual);
+        invertTriggerCheckBox.setSelected(isInvertTrigger);
+
+        switch(adcref) {
+        case 0:
+        case 1:
+            vrefCombo.setSelectedIndex(adcref);
+            break;
+        case 3:
+        default:
+            vrefCombo.setSelectedIndex(2);
+        }
+
     }
 
     protected void populateSerialMenu() {
@@ -131,11 +153,6 @@ public class ArduinoOscopeImpl implements Protocol.ScopeDisplayer, ChangeListene
         frame.setJMenuBar(bar);
         populateSerialMenu();
 
-        JLabel label = new JLabel("Label1");
-        JLabel label2 = new JLabel("Label2");
-        JLabel label3 = new JLabel("Label3");
-        JButton button1 = new JButton("Butao");
-
         scope = new ScopeDisplay();
 
         panel = new JPanel();
@@ -182,16 +199,25 @@ public class ArduinoOscopeImpl implements Protocol.ScopeDisplayer, ChangeListene
 
         JPanel prescalePanel = new JPanel();
         prescalePanel.setLayout(new BoxLayout(prescalePanel, BoxLayout.PAGE_AXIS));
-        
         String[] prescaleStrings = { "128","64","32","16","8","4","2" };
         JLabel prescaleLabel = new JLabel("Prescaler",JLabel.CENTER);
         prescaleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-
         prescaleCombo = new JComboBox(prescaleStrings);
         prescaleCombo.addActionListener(this);
         prescalePanel.add(prescaleLabel);
         prescalePanel.add(prescaleCombo);
         hpanel.add(prescalePanel);
+
+        JPanel vrefPanel = new JPanel();
+        vrefPanel.setLayout(new BoxLayout(vrefPanel, BoxLayout.PAGE_AXIS));
+        String[] vrefStrings = { "AREF","AVcc","Internal 1.1V" };
+        JLabel vrefLabel = new JLabel("VRef",JLabel.CENTER);
+        vrefLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        vrefCombo = new JComboBox(vrefStrings);
+        vrefCombo.addActionListener(this);
+        vrefPanel.add(vrefLabel);
+        vrefPanel.add(vrefCombo);
+        hpanel.add(vrefPanel);
 
 
         dualChannelCheckBox = new JCheckBox("Dual Channel", false);
@@ -199,9 +225,23 @@ public class ArduinoOscopeImpl implements Protocol.ScopeDisplayer, ChangeListene
         dualChannelListener = new DualChannelListener();
         dualChannelCheckBox.addActionListener(dualChannelListener);
 
+        invertTriggerCheckBox = new JCheckBox("Invert trigger", false);
+        hpanel.add(invertTriggerCheckBox);
+        invertTriggerListener = new InvertTriggerListener();
+        invertTriggerCheckBox.addActionListener(invertTriggerListener);
+
         panel.add(scope);
         panel.add(hpanel);
 
+        JPanel buttonPanel = new JPanel();
+        JButton singleShot = new JButton("Single shot");
+        buttonPanel.add(singleShot);
+        singleShotListener = new SingleShotListener();
+        singleShot.addActionListener(singleShotListener);
+
+        freezeUnfreezeButton = new JButton("Freeze");
+        buttonPanel.add(freezeUnfreezeButton);
+        // Not ready yet. panel.add(buttonPanel);
 
         frame.getContentPane().add(panel);
 
@@ -236,11 +276,47 @@ public class ArduinoOscopeImpl implements Protocol.ScopeDisplayer, ChangeListene
         }
     }
 
+    class InvertTriggerListener implements ActionListener {
+        public void actionPerformed(ActionEvent e) {
+            JCheckBox cb = (JCheckBox)e.getSource();
+            proto.setTriggerInvert(cb.isSelected());
+        }
+    }
+
+    class SingleShotListener implements ActionListener {
+        public void actionPerformed(ActionEvent e) {
+            JOptionPane p = new JOptionPane("Waiting for trigger...\n"+
+                                            "Press OK to cancel",
+                                            JOptionPane.INFORMATION_MESSAGE
+                                            );
+
+            waitTriggerDialog = p.createDialog(frame,"Trigger");
+            waitTriggerDialog.pack();
+            proto.setOneShot(true);
+            waitTriggerDialog.setVisible(true);
+            proto.setOneShot(false);
+            waitTriggerDialog = null;
+        }
+    }
+
     public void actionPerformed(ActionEvent e) {
-        JComboBox cb = (JComboBox)e.getSource();        String name = (String)cb.getSelectedItem();
-        int base = (int)log2(Integer.parseInt(name));
-        System.out.println("New prescaler " + base + " (" + name + ")");
-        proto.setPrescaler(base);
+        JComboBox cb = (JComboBox)e.getSource();
+        String name = (String)cb.getSelectedItem();
+        if (cb==prescaleCombo) {
+            int base = (int)log2(Integer.parseInt(name));
+            System.out.println("New prescaler " + base + " (" + name + ")");
+            proto.setPrescaler(base);
+        } else if (cb==vrefCombo) {
+            int base;
+            if (name.equals("AREF")) {
+                base=0;
+            } else if (name.equals("AVcc")) {
+                base=1;
+            } else {
+                base = 3;
+            }
+            proto.setVref(base);
+        }
     }
 
     class SerialMenuListener implements ActionListener {
@@ -251,7 +327,6 @@ public class ArduinoOscopeImpl implements Protocol.ScopeDisplayer, ChangeListene
                 System.out.println("serialMenu is null");
                 return;
             }
-            System.out.println("Select");
             int count = serialMenu.getItemCount();
             for (int i = 0; i < count; i++) {
                 ((JCheckBoxMenuItem)serialMenu.getItem(i)).setState(false);

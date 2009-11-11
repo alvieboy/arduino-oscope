@@ -32,7 +32,7 @@ public class ScopeDisplay extends JComponent {
     boolean isDual;
 
     public ScopeDisplay() {
-        numSamples = 962/2;
+        numSamples = 962;
         resizeToNumSamples();
     }
 

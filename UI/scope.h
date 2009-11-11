@@ -37,6 +37,7 @@ struct _ScopeDisplay
 	unsigned char tlevel;
 	unsigned int zoom;
 	gboolean dual;
+	gboolean xy;
 	double freq;
 #ifdef HAVE_DFT
 	double *dbuf_real;

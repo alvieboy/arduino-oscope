@@ -28,6 +28,7 @@ static void scope_display_init (ScopeDisplay *scope)
 	scope->zoom=1;
 	scope->dbuf = NULL;
 	scope->dual = FALSE;
+	scope->xy = FALSE;
 #ifdef HAVE_DFT
 	scope->mode = MODE_NORMAL;
 	scope->dbuf_real = NULL;
@@ -128,63 +129,80 @@ static void draw(GtkWidget *scope, cairo_t *cr)
 			}
 			cairo_stroke (cr);
 		} else {
-			for (i=0; i<self->numSamples/self->zoom; i+=2) {
-				cairo_move_to(cr,lx,ly);
-				lx=scope->allocation.x + i*self->zoom;
-				ly=scope->allocation.y+scope->allocation.height - self->dbuf[i];
-				cairo_line_to(cr,lx,ly);
-			}
-			cairo_stroke (cr);
-			cairo_set_source_rgb(cr,255,255,0);
-			lx=scope->allocation.x+1;
-			ly=scope->allocation.y+scope->allocation.height;
+			if (self->xy) {
 
-			for (i=1; i<self->numSamples/self->zoom; i+=2) {
-				cairo_move_to(cr,lx,ly);
-				lx=scope->allocation.x + i*self->zoom;
-				ly=scope->allocation.y+scope->allocation.height - self->dbuf[i];
-				cairo_line_to(cr,lx,ly);
+				lx=scope->allocation.x + scope->allocation.width / 2;
+				ly=scope->allocation.y + scope->allocation.height / 2;
+
+				for (i=0; i<self->numSamples; i+=2) {
+					cairo_move_to(cr,
+								  lx + ((int)self->dbuf[i])-127 ,
+								  ly + ((int)self->dbuf[i+1])-127
+								 );
+					lx=scope->allocation.x + i*self->zoom;
+					ly=scope->allocation.y+scope->allocation.height - self->dbuf[i];
+					cairo_line_to(cr,lx,ly);
+				}
+				cairo_stroke (cr);
+
+			} else {
+				for (i=0; i<self->numSamples/self->zoom; i+=2) {
+					cairo_move_to(cr,lx,ly);
+					lx=scope->allocation.x + i*self->zoom;
+					ly=scope->allocation.y+scope->allocation.height - self->dbuf[i];
+					cairo_line_to(cr,lx,ly);
+				}
+				cairo_stroke (cr);
+				cairo_set_source_rgb(cr,255,255,0);
+				lx=scope->allocation.x+1;
+				ly=scope->allocation.y+scope->allocation.height;
+
+				for (i=1; i<self->numSamples/self->zoom; i+=2) {
+					cairo_move_to(cr,lx,ly);
+					lx=scope->allocation.x + i*self->zoom;
+					ly=scope->allocation.y+scope->allocation.height - self->dbuf[i];
+					cairo_line_to(cr,lx,ly);
+				}
+				cairo_stroke (cr);
 			}
-			cairo_stroke (cr);
-			
 		}
 	}
 
 #endif
 
-		cairo_set_font_size (cr, 12);
-		cairo_set_source_rgb (cr, 0.5,1.0,1.0);
-		cairo_select_font_face (cr, "Helvetica",
-								CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+	cairo_set_font_size (cr, 12);
+	cairo_set_source_rgb (cr, 0.5,1.0,1.0);
+	cairo_select_font_face (cr, "Helvetica",
+							CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
 
-		double tdiv = (double)self->numSamples*100.0 / self->freq;
-		sprintf(text,"tDiv: %.02fms", tdiv / (double)self->zoom);
-		cairo_font_extents(cr, &fe);
-		cairo_text_extents(cr, text, &te);
+	double tdiv = (double)self->numSamples*100.0 / self->freq;
+	sprintf(text,"tDiv: %.02fms", tdiv / (double)self->zoom);
+	cairo_font_extents(cr, &fe);
+	cairo_text_extents(cr, text, &te);
 
-		vtextpos = scope->allocation.y + scope->allocation.height - te.height;
+	vtextpos = scope->allocation.y + scope->allocation.height - te.height;
 
-		cairo_move_to(cr,
-					  scope->allocation.x + scope->allocation.width - te.width - 10,
-					  vtextpos
-					 );
-		cairo_show_text(cr, text);
+	cairo_move_to(cr,
+				  scope->allocation.x + scope->allocation.width - te.width - 10,
+				  vtextpos
+				 );
+	cairo_show_text(cr, text);
 
-		if (self->dual) {
-			sprintf(text,"fMax/chan: %.02fHz", self->freq/4);
-		} else {
-			sprintf(text,"fMax: %.02fHz", self->freq/2);
-		}
-		cairo_text_extents(cr, text, &te);
-
-		vtextpos -= (te.height + 4);
-
-		cairo_move_to(cr,
-					  scope->allocation.x + scope->allocation.width - te.width - 10,
-					  vtextpos
-					 );
-		cairo_show_text(cr, text);
+	if (self->dual) {
+		sprintf(text,"fMax/chan: %.02fHz", self->freq/4);
+	} else {
+		sprintf(text,"fMax: %.02fHz", self->freq/2);
 	}
+	cairo_text_extents(cr, text, &te);
+
+	vtextpos -= (te.height + 4);
+
+	cairo_move_to(cr,
+				  scope->allocation.x + scope->allocation.width - te.width - 10,
+				  vtextpos
+				 );
+	cairo_show_text(cr, text);
+}
 
 void scope_display_set_zoom(GtkWidget *scope, unsigned int zoom)
 {
