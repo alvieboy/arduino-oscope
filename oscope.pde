@@ -381,6 +381,10 @@ ISR(ADC_vect)
 			holdoff=holdoffSamples;
 			autoTrigCount=0;
 			dataBufferPtr=0;
+			if (flags&BYTE_FLAG_INVERTTRIGGER)
+				last=0;
+			else
+				last=255;
 		}
 	}
 	gflags=flags;

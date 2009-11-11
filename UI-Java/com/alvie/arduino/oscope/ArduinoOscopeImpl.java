@@ -192,6 +192,7 @@ public class ArduinoOscopeImpl implements Protocol.ScopeDisplayer, ChangeListene
         holdoffSlider.setMinorTickSpacing(1);
         holdoffSlider.setPaintTicks(true);
         holdoffSlider.setPaintLabels(false);
+        holdoffSlider.addChangeListener(this);
         holdoffPanel.add(holdoffLabel);
         holdoffPanel.add(holdoffSlider);
         hpanel.add(holdoffPanel);

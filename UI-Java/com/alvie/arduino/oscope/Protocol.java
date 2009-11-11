@@ -104,6 +104,7 @@ public class Protocol implements SerialPortEventListener
         state = MyState.PING;
         enableTriggerDone=false;
         inRequest=false;
+        pingAttempts = 3;
     }
 
     boolean isTriggerInvert;
@@ -111,6 +112,8 @@ public class Protocol implements SerialPortEventListener
     boolean inRequest;
     boolean delayRequest;
     boolean freeze;
+    Timer pingtimer;
+    int pingAttempts;
 
     void processPacket(int command, int [] buf, int size)
     {
@@ -136,6 +139,7 @@ public class Protocol implements SerialPortEventListener
 
         case PING:
             if (command==COMMAND_PONG) {
+                pingtimer.cancel();
                 System.out.println("Got ping reply");
                 /* Request version */
                 sendPacket(COMMAND_GET_VERSION);
@@ -269,15 +273,21 @@ public class Protocol implements SerialPortEventListener
         if (null==output)
             return;
         try {
-            cksum^=(size>>8)&0xff;
-            cksum^=(size&0xff);
 
-            output.write((byte)(size>>8));
+            size++;
+            if (size>127) {
+		size |= 0x8000; // Set MSBit on MSB
+		cksum^= (size>>8)&0xff;
+                output.write((size>>8)&0xff);
+                size &= 0x7FFF;
+            }
+            cksum^=(size&0xff);
             output.write(size&0xff);
 
             output.write(command&0xff);
             cksum^=command&0xff;
 
+            size--;
 
             for (i=0;i<size;i++) {
                 cksum^=buf[i]&0xff;
@@ -290,6 +300,16 @@ public class Protocol implements SerialPortEventListener
         }
     }
 
+    void resetTarget()
+    {
+        int i;
+        try {
+            for (i=0; i<512; i++ ) {
+                output.write(0x00);
+            }
+        } catch (java.io.IOException e) {
+        }
+    }
 
     void process(int sig_bIn)
     {
@@ -298,9 +318,16 @@ public class Protocol implements SerialPortEventListener
 
         switch(st) {
         case SIZE:
-            pSize = bIn<<8;
-            cksum = bIn;
-            st = PacketState.SIZE2;
+            if (bIn==0)
+                break; // Reset procedure.
+            if ((bIn & 0x80)!=0) {
+                pSize = (bIn&0x7F)<<8;
+                st = PacketState.SIZE2;
+            } else {
+                pSize = bIn;
+                pBufPtr = 0;
+                st = PacketState.COMMAND;
+            }
             break;
 
         case SIZE2:
@@ -312,6 +339,8 @@ public class Protocol implements SerialPortEventListener
         case COMMAND:
 
             command = bIn;
+            pSize--;
+
             if (pSize>0)
                 st = PacketState.PAYLOAD;
             else
@@ -385,6 +414,20 @@ public class Protocol implements SerialPortEventListener
     {
     };
 
+    class PingTimeoutTask extends TimerTask {
+        public void run() {
+            pingtimer.cancel();
+            pingAttempts--;
+            if (pingAttempts>0) {
+                System.out.println("Resetting and pinging again...");
+                resetTarget();
+                pingDevice();
+            } else {
+                System.out.println("Oscope not responding!");
+            }
+        }
+    };
+
     void pingDevice()
     {
         int [] buf = new int[4];
@@ -393,6 +436,9 @@ public class Protocol implements SerialPortEventListener
         buf[2] = 3;
         buf[3] = 4;
         System.out.println("Pinging device");
+        pingtimer = new Timer();
+        pingtimer.schedule(new PingTimeoutTask(), 2000);
+
         sendPacket(COMMAND_PING, buf, 4);
     }
 
@@ -416,7 +462,8 @@ public class Protocol implements SerialPortEventListener
                 throw new SerialPortOpenException();
             }
             System.out.println("Port " + name + " open successfully");
-
+            
+            pingAttempts = 3;
             pingDevice();
         }
     }
