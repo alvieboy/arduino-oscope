@@ -1,5 +1,8 @@
 --- Serial protocol definition for arduino-oscope --
 
+ This is protocol definition for version 2.X. For 1.X versions, please
+ read README.protocol.v1
+
  Arduino and display device (PC) communicate over a serial link, using a 
  simple packet-oriented protocol. The protocol is the same for both 
  directions.
@@ -8,13 +11,23 @@
  
  
  +--------------+----------+---------------------+----------+
- | Payload Size | Command  | Payload             | Checksum |
- |  (2 bytes)   | (1 byte) | (0 to payload size) |  1 byte  |
+ | Data    Size | Command  | Payload             | Checksum |
+ | (1-2 bytes)  | (1 byte) | (0 to payload size) |  1 byte  |
  +--------------+----------+---------------------+----------+
  
- * Payload size
-   - Size of payload, in big-endian. Can be zero for simple commands (i.e., 
-     no payload at all)
+ * Data size
+   - By data size we understand size of payload plus size of command
+     field. For a packet with no payload at all, data size is 1.
+     
+     Data size field can be 1 byte or two bytes long. For data size
+     less than 128 it is depicted as one-byte. If the most significant
+     bit is set, then another byte will follow. Data size will then 
+     be DATASIZE & 0x7FFF, you'll have to clear the MSbit.
+
+     Examples:
+       
+       payload size 3, data size is one byte, 0x04
+       payload size 512, data size is two bytes, 0x82 0x01
  
  * Command
    - Command or reply. 1 byte long. See list below for supported commands.
@@ -32,6 +45,14 @@
    
  Packets received by arduino have a size limit, due to memory size constraints.
  Any packet received with size greater than this limit is ignored.
+ 
+ Reset procedure
+ 
+ Before sending out commands, you should reset the state machines by issuing
+ at few number of zeroes. The minimum number of zeroes to send is 
+ arduino packet size limit + 1. This will ensure proper reset of all 
+ states.
+ 
  
  Supported commands (version 1.2):
  

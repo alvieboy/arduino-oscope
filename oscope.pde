@@ -159,15 +159,22 @@ static void send_packet(unsigned char command, unsigned char *buf, unsigned shor
 {
 	unsigned char cksum=command;
 	unsigned short i;
+	unsigned short rsize = size;
 
-	cksum^= (size>>8);
-	cksum^= (size&0xff);
-
-	Serial.write((size>>8)&0xff);
-	Serial.write(size&0xff);
+	rsize++;
+	if (rsize>127) {
+		rsize |= 0x8000; // Set MSBit on MSB
+		cksum^= (rsize>>8);
+		Serial.write((rsize>>8)&0xff);
+	}
+	cksum^= (rsize&0xff);
+	Serial.write(rsize&0xff);
 
 	Serial.write(command);
-	for (i=0;i<size;i++) {
+
+	rsize=size;
+
+	for (i=0;i<rsize;i++) {
 		cksum^=buf[i];
 		Serial.write(buf[i]);
 	}
@@ -240,13 +247,23 @@ static void process_packet(unsigned char command, unsigned char *buf, unsigned s
 static void process(unsigned char bIn)
 {
 	cksum^=bIn;
-	//Serial.write(cksum);
 
 	switch(st) {
 	case SIZE:
-		pSize =((unsigned short)bIn<<8);
 		cksum = bIn;
-		st = SIZE2;
+		if (bIn==0) {
+			break; // Reset procedure.
+		}
+		if (bIn & 0x80) {
+			pSize =((unsigned short)(bIn&0x7F)<<8);
+			st = SIZE2;
+		} else {
+			pSize = bIn;
+			if (bIn>MAX_PACKET_SIZE)
+				break;
+			pBufPtr = 0;
+			st = COMMAND;
+		}
 		break;
 
 	case SIZE2:
@@ -260,6 +277,7 @@ static void process(unsigned char bIn)
 	case COMMAND:
 
 		command = bIn;
+		pSize--;
 		if (pSize>0)
 			st = PAYLOAD;
 		else
@@ -278,7 +296,6 @@ static void process(unsigned char bIn)
 		if (cksum==0) {
 			process_packet(command,pBuf,pBufPtr);
 		}
-
 		st = SIZE;
 	}
 }

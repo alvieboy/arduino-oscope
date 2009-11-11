@@ -55,6 +55,7 @@ void sendchar(int i) {
 	char t = i &0xff;
 	gsize written;
 	GError *error = NULL;
+	printf("> %02x\n",(unsigned)t);
 	g_io_channel_write_chars(channel,&t,sizeof(t),&written,&error);
 }
 
@@ -64,15 +65,20 @@ void send_packet(unsigned char command, unsigned char *buf, unsigned short size)
 	unsigned char i;
 	GError *error = NULL;
 
-	cksum^=(size>>8);
+	size++;
+	if (size>127) {
+		size |= 0x8000; // Set MSBit on MSB
+		cksum^= (size>>8);
+		sendchar((size>>8)&0xff);
+		size &= 0x7FFF;
+	}
 	cksum^=(size&0xff);
-
-	sendchar(size>>8);
 	sendchar(size&0xff);
 
 	sendchar(command);
 	cksum^=(unsigned char)command;
 
+	size--;
 
 	for (i=0;i<size;i++) {
 		cksum^=buf[i];
@@ -178,15 +184,23 @@ void process(unsigned char bIn)
 
 	switch(st) {
 	case SIZE:
-		pSize = (unsigned short)bIn<<8;;
-		//printf("S0: %u\n",bIn);
 		cksum = bIn;
-		st = SIZE2;
+		if (bIn==0)
+			break; // Reset procedure.
+		if (bIn & 0x80) {
+			pSize =((unsigned short)(bIn&0x7F)<<8);
+			st = SIZE2;
+		} else {
+			pSize = bIn;
+			pBufPtr = 0;
+			st = COMMAND;
+		}
 		break;
 
 	case SIZE2:
 		pSize += bIn;
 		//printf("S1: %u\n",bIn);
+		//printf("Large packet %u\n",pSize);
 		pBufPtr = 0;
 		st = COMMAND;
 		//printf("S+: %u\n",pSize);
@@ -196,6 +210,7 @@ void process(unsigned char bIn)
 
 		command = bIn;
 		//printf("CM: %u\n",command);
+		pSize--;
 		if (pSize>0)
 			st = PAYLOAD;
 		else
@@ -203,6 +218,7 @@ void process(unsigned char bIn)
 		break;
 	case PAYLOAD:
 
+		//printf("< %u %02x\n",pBufPtr,(unsigned) bIn);
 		pBuf[pBufPtr++] = bIn;
 		pSize--;
 		if (pSize==0) {
@@ -211,6 +227,7 @@ void process(unsigned char bIn)
 		break;
 
 	case CKSUM:
+		//printf("< SUM %02x\n",(unsigned) bIn);
 		if (cksum==0) {
 			process_packet(command,pBuf,pBufPtr);
 		} else {
@@ -240,6 +257,14 @@ void loop()
 #ifdef STANDALONE
 	g_main_loop_run(loo);
 #endif
+}
+
+void serial_reset_target()
+{
+	int i;
+	for (i=0; i<512; i++) {
+		sendchar(0x00);
+	}
 }
 
 void serial_set_trigger_level(unsigned char trig)
@@ -344,7 +369,8 @@ void serial_set_dual_channel(gboolean active)
 int serial_run( void (*setdata)(unsigned char *data,size_t size))
 {
 	sdata = setdata;
-    fprintf(stderr,"Pinging device...\n");
+	serial_reset_target();
+	fprintf(stderr,"Pinging device...\n");
 	send_packet(COMMAND_PING,(unsigned char*)"BABA",4);
 	loop();
 	return 0;

@@ -20,8 +20,8 @@
 #define __PROTOCOL_H__
 
 /* Our version */
-#define PROTOCOL_VERSION_HIGH 0x01
-#define PROTOCOL_VERSION_LOW 0x04
+#define PROTOCOL_VERSION_HIGH 0x02
+#define PROTOCOL_VERSION_LOW  0x01
 
 /* Serial commands we support */
 #define COMMAND_PING           0x3E
