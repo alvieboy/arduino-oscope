@@ -96,7 +96,7 @@ static void setup_adc()
 	ADCSRB = 0; // Free-running mode
 	// DIDR0 = ~1; // Enable only first analog input
 	ADMUX = 0x20; // left-aligned, channel 0
-	ADMUX |= (adcref<<(REFS0-1)); // internal 1.1v reference, left-aligned, channel 0
+	ADMUX |= (adcref<<REFS0); // internal 1.1v reference, left-aligned, channel 0
 
 	PRR &= ~BIT(PRADC); /* Disable ADC power reduction */
 	ADCSRA = BIT(ADIE)|BIT(ADEN)|BIT(ADSC)|BIT(ADATE)|prescale; // Start conversion, enable autotrigger
@@ -136,7 +136,7 @@ static void set_num_samples(unsigned short num)
 void setup()
 {
 	prescale = BIT(ADPS0)|BIT(ADPS1)|BIT(ADPS2);
-	adcref = 0x0; // Default 
+	adcref = 0x0; // Default
 	dataBuffer=NULL;
 	triggerLevel=0;
 	autoTrigSamples = 255;
