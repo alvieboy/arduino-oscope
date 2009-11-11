@@ -55,7 +55,6 @@ void sendchar(int i) {
 	char t = i &0xff;
 	gsize written;
 	GError *error = NULL;
-	printf("> %02x\n",(unsigned)t);
 	g_io_channel_write_chars(channel,&t,sizeof(t),&written,&error);
 }
 
