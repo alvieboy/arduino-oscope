@@ -112,7 +112,7 @@ public class Protocol implements SerialPortEventListener
     boolean inRequest;
     boolean delayRequest;
     boolean freeze;
-    Timer pingtimer;
+    Timer pingtimer,nosampletimer;
     int pingAttempts;
 
     void processPacket(int command, int [] buf, int size)
@@ -219,6 +219,7 @@ public class Protocol implements SerialPortEventListener
 
     void setVref(int vref)
     {
+        System.out.println("Set VREF to " + vref);
         sendPacket(COMMAND_SET_VREF,vref);
     }
 
@@ -365,13 +366,17 @@ public class Protocol implements SerialPortEventListener
         }
     }
 
-
     synchronized public void serialEvent(SerialPortEvent serialEvent) {
-
+        int numbytes,i;
+        byte [] readbuf;
         if (serialEvent.getEventType() == SerialPortEvent.DATA_AVAILABLE) {
             try {
-                while (input.available() > 0) {
-                    process(input.read());
+                while ((numbytes=input.available()) > 0) {
+                    readbuf = new byte[numbytes];
+                    input.read(readbuf);
+                    for (i=0; i<readbuf.length; i++) {
+                        process(readbuf[i]);
+                    }
                 }
             } catch (IOException e) {
             }
@@ -427,6 +432,15 @@ public class Protocol implements SerialPortEventListener
             }
         }
     };
+
+    /*
+     class NoSampleTask extends TimerTask {
+        public void run() {
+            nosampletask.cancel();
+
+        }
+        };
+        */
 
     void pingDevice()
     {
