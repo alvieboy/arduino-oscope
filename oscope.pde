@@ -104,9 +104,10 @@ static void setup_adc()
 
 static void start_sampling()
 {
-	sei();
+	cli();
 	gflags &= ~BYTE_FLAG_CONVERSIONDONE;
 	gflags |= BYTE_FLAG_STARTCONVERSION;
+	sei();
 }
 
 static void adc_set_frequency(unsigned char divider)
@@ -232,9 +233,11 @@ static void process_packet(unsigned char command, unsigned char *buf, unsigned s
 		send_parameters(buf);
 		break;
 	case COMMAND_SET_FLAGS:
+		cli();
 		gflags &= ~(BYTE_FLAG_INVERTTRIGGER|BYTE_FLAG_DUALCHANNEL);
 		buf[0] &= BYTE_FLAG_INVERTTRIGGER|BYTE_FLAG_DUALCHANNEL;
 		gflags |= buf[0];
+		sei();
 		send_parameters(buf);
 		break;
 	default:
@@ -306,7 +309,9 @@ void loop() {
 		bIn =  Serial.read();
 		process(bIn & 0xff);
 	} else if (gflags & BYTE_FLAG_CONVERSIONDONE) {
+		cli();
 		gflags &= ~ BYTE_FLAG_CONVERSIONDONE;
+		sei();
 		send_packet(COMMAND_BUFFER_SEG, dataBuffer, numSamples);
 	} else {
 	}
