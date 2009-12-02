@@ -36,6 +36,7 @@ GtkWidget *scale_trigger;
 GtkWidget *scale_holdoff;
 GtkWidget *combo_prescaler;
 GtkWidget *combo_vref;
+GtkWidget *combo_channels;
 GtkWidget *shot_button;
 GtkWidget *freeze_button;
 
@@ -61,13 +62,13 @@ void scope_got_parameters(unsigned char triggerLevel,
 						  unsigned char adcref,
 						  unsigned char prescale,
 						  unsigned short numS,
-						  unsigned char flags)
+						  unsigned char flags,
+						  unsigned char num_channels)
 {
 	numSamples=numS;
 	gtk_widget_set_size_request(image,numS,256);
 	scope_display_set_samples(image,numS);
-	printf("DUAL: %d\n",!!(flags & FLAG_DUAL_CHANNEL));
-	scope_display_set_dual(image,!!(flags & FLAG_DUAL_CHANNEL));
+	scope_display_set_channels(image,num_channels);
 	gtk_range_set_value(GTK_RANGE(scale_trigger),triggerLevel);
 	gtk_range_set_value(GTK_RANGE(scale_holdoff),holdoffSamples);
 
@@ -82,6 +83,7 @@ void scope_got_parameters(unsigned char triggerLevel,
 	}
 
 	gtk_combo_box_set_active(GTK_COMBO_BOX(combo_prescaler),7-prescale);
+	gtk_combo_box_set_active(GTK_COMBO_BOX(combo_channels),num_channels-1);
 }
 
 
@@ -156,10 +158,10 @@ void trigger_toggle_changed(GtkWidget *widget)
 	serial_set_trigger_invert(active);
 }
 
-void dual_toggle_changed(GtkWidget *widget)
+void channels_changed(GtkWidget *widget)
 {
-	gboolean active = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
-	serial_set_dual_channel(active);
+	char *active_s = gtk_combo_box_get_active_text(GTK_COMBO_BOX(widget));
+	serial_set_channels(atoi(active_s));
 }
 
 void cancel_trigger(GtkDialog *widget)
@@ -300,6 +302,20 @@ int main(int argc,char **argv)
 	gtk_combo_box_append_text(GTK_COMBO_BOX(combo_vref),"AVcc");
 	gtk_combo_box_append_text(GTK_COMBO_BOX(combo_vref),"Internal 1.1V");
 
+
+	hbox = gtk_hbox_new(FALSE,4);
+	gtk_box_pack_start(GTK_BOX(vbox),hbox,TRUE,TRUE,0);
+	gtk_box_pack_start(GTK_BOX(hbox),gtk_label_new("Channels:"),TRUE,TRUE,0);
+	combo_channels = gtk_combo_box_new_text();
+	gtk_box_pack_start(GTK_BOX(hbox),combo_channels,TRUE,TRUE,0);
+
+	gtk_combo_box_append_text(GTK_COMBO_BOX(combo_channels),"1");
+	gtk_combo_box_append_text(GTK_COMBO_BOX(combo_channels),"2");
+	gtk_combo_box_append_text(GTK_COMBO_BOX(combo_channels),"3");
+	gtk_combo_box_append_text(GTK_COMBO_BOX(combo_channels),"4");
+	g_signal_connect(G_OBJECT(combo_channels),"changed",G_CALLBACK(&channels_changed),NULL);
+
+
 	hbox = gtk_hbox_new(FALSE,4);
 	gtk_box_pack_start(GTK_BOX(vbox),hbox,TRUE,TRUE,0);
 
@@ -315,9 +331,6 @@ int main(int argc,char **argv)
 	gtk_box_pack_start(GTK_BOX(hbox),tog,TRUE,TRUE,0);
 	g_signal_connect(G_OBJECT(tog),"toggled",G_CALLBACK(&trigger_toggle_changed),NULL);
 
-	GtkWidget *dual_check_button = gtk_check_button_new_with_label("Dual Channel");
-	gtk_box_pack_start(GTK_BOX(hbox),dual_check_button,TRUE,TRUE,0);
-	g_signal_connect(G_OBJECT(dual_check_button),"toggled",G_CALLBACK(&dual_toggle_changed),NULL);
 
 
 	gtk_widget_show_all(window);

@@ -147,6 +147,7 @@
         3 - ACD prescaler
         4,5 - Number of samples (NUM_SAMPLES). Big-endian.
         6 (v1.4) - Capture flags
+        7 (v2.2) - Number of channels
         
   * COMMAND_PONG           0xE3
     > Payload size: variable
@@ -173,6 +174,12 @@
       Set capture flags. Will reply with COMMAND_PARAMETERS_REPLY.
       Bitmap of following values:
         bit 0 - Invert trigger
-        bit 1 - Set dual-channel
+        bit 1 - Set dual-channel (deprecated in v2.2 - see COMMAND_SET_CHANNELS)
+
+  * COMMAND_SET_CHANNELS    0x51
+    > Payload size: 1
+    > Since: v2.2
+    
+      Set number of channels (1 to 4). Will reply with COMMAND_PARAMETERS_REPLY.
 
  

@@ -34,7 +34,6 @@ static gboolean in_request;
 static gboolean freeze = FALSE;
 static gboolean delay_request = FALSE;
 static gboolean is_trigger_invert;
-static gboolean is_dual_channel;
 
 #ifdef STANDALONE
 GMainLoop *loo;
@@ -49,7 +48,8 @@ extern void scope_got_parameters(unsigned char triggerLevel,
 								 unsigned char adcref,
 								 unsigned char prescale,
 								 unsigned short numSamples,
-								 unsigned char flags);
+								 unsigned char flags,
+								 unsigned char numChannels);
 
 void sendchar(int i) {
 	char t = i &0xff;
@@ -116,10 +116,10 @@ void process_packet(unsigned char command, unsigned char *buf, unsigned short si
 		ns += buf[5];
 
 		is_trigger_invert = buf[6] & FLAG_INVERT_TRIGGER;
-		is_dual_channel = buf[6] & FLAG_DUAL_CHANNEL;
 
-		scope_got_parameters(buf[0],buf[1],buf[2],buf[3],ns,buf[6]);
+		scope_got_parameters(buf[0],buf[1],buf[2],buf[3],ns,buf[6],buf[7]);
 		printf("Num samples: %d %d %d \n", ns, buf[4],buf[5]);
+		printf("Channels: %d \n",buf[7]);
 	}
 
 	switch(state) {
@@ -346,8 +346,6 @@ void serial_set_vref(unsigned char vref)
 static void set_flags()
 {
 	unsigned char c=0;
-	if (is_dual_channel)
-		c|=FLAG_DUAL_CHANNEL;
 	if (is_trigger_invert)
 		c|=FLAG_INVERT_TRIGGER;
 	send_packet(COMMAND_SET_FLAGS,&c,1);
@@ -359,10 +357,12 @@ void serial_set_trigger_invert(gboolean active)
 	is_trigger_invert = active;
 	set_flags();
 }
-void serial_set_dual_channel(gboolean active)
+void serial_set_channels(int channels)
 {
-	is_dual_channel = active;
-	set_flags();
+	if (channels<1 || channels>4)
+		return;
+	unsigned char c = channels;
+	send_packet(COMMAND_SET_CHANNELS, &c, 1);
 }
 
 int serial_run( void (*setdata)(unsigned char *data,size_t size))

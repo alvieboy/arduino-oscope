@@ -21,7 +21,7 @@
 
 /* Our version */
 #define PROTOCOL_VERSION_HIGH 0x02
-#define PROTOCOL_VERSION_LOW  0x01
+#define PROTOCOL_VERSION_LOW  0x02
 
 /* Serial commands we support */
 #define COMMAND_PING           0x3E
@@ -35,6 +35,7 @@
 #define COMMAND_SET_SAMPLES    0x48
 #define COMMAND_SET_AUTOTRIG   0x49
 #define COMMAND_SET_FLAGS      0x50
+#define COMMAND_SET_CHANNELS   0x51
 #define COMMAND_VERSION_REPLY  0x80
 #define COMMAND_BUFFER_SEG     0x81
 #define COMMAND_PARAMETERS_REPLY 0x87
@@ -42,6 +43,5 @@
 #define COMMAND_ERROR          0xFF
 
 #define FLAG_INVERT_TRIGGER  (1<<0)
-#define FLAG_DUAL_CHANNEL    (1<<1)
 
 #endif

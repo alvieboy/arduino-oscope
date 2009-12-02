@@ -35,7 +35,7 @@ enum state {
 
 /* Maximum packet size we can receive from serial. We can however
  transmit more than this */
-#define MAX_PACKET_SIZE 7
+#define MAX_PACKET_SIZE 9
 
 /* Number of samples we support, i.e., dataBuffer size */
 static unsigned short numSamples;
@@ -75,13 +75,17 @@ static unsigned short pSize;
 static unsigned char command;
 static enum state st;
 
+static uint8_t channels;
+static uint8_t current_channel;
 
 #define BYTE_FLAG_TRIGGERED       (1<<7) /* Signal is triggered */
 #define BYTE_FLAG_STARTCONVERSION (1<<6) /* Request conversion to start */
 #define BYTE_FLAG_CONVERSIONDONE  (1<<5) /* Conversion done flag */
 #define BYTE_FLAG_STOREDATA       (1<<4) /* Internal flag - store data in buffer */
+#define BYTE_FLAG_SAWTRIGGER      (1<<3) /* Whether we found trigger or was auto */
+#define BYTE_FLAG_IGNORE_SAMPLE   (1<<2) /* Ignore next sample - we have a 2-ADC clock delay */
+#define BYTE_FLAG_JUST_TRIGGERED  (1<<1) /* Just triggered */
 
-#define BYTE_FLAG_DUALCHANNEL     FLAG_DUAL_CHANNEL /* Dual-channel enabled */
 #define BYTE_FLAG_INVERTTRIGGER   FLAG_INVERT_TRIGGER /* Trigger is inverted (negative edge) */
 
 #define BIT(x) (1<<x)
@@ -128,7 +132,8 @@ static void set_num_samples(unsigned short num)
 	cli();
 
 	numSamples  = num;
-	dataBuffer = (unsigned char*)malloc(numSamples);
+	dataBuffer = (unsigned char*)malloc(numSamples + 2);
+    // Why +1 ? So we can store some flags and values.
 
 	sei();
 }
@@ -143,6 +148,9 @@ void setup()
 	autoTrigSamples = 255;
 	autoTrigCount = 0;
 	holdoffSamples = 0;
+	channels = 1;
+	current_channel = 0;
+    gflags=0;
 
 	Serial.begin(BAUD_RATE);
 	pinMode(ledPin,OUTPUT);
@@ -191,7 +199,8 @@ static void send_parameters(unsigned char*buf)
 	buf[4] = (numSamples >> 8);
 	buf[5] = numSamples & 0xff;
 	buf[6] = gflags;
-	send_packet(COMMAND_PARAMETERS_REPLY, buf, 7);
+	buf[7] = channels;
+	send_packet(COMMAND_PARAMETERS_REPLY, buf, 8);
 }
 
 static void process_packet(unsigned char command, unsigned char *buf, unsigned short size)
@@ -234,9 +243,15 @@ static void process_packet(unsigned char command, unsigned char *buf, unsigned s
 		break;
 	case COMMAND_SET_FLAGS:
 		cli();
-		gflags &= ~(BYTE_FLAG_INVERTTRIGGER|BYTE_FLAG_DUALCHANNEL);
-		buf[0] &= BYTE_FLAG_INVERTTRIGGER|BYTE_FLAG_DUALCHANNEL;
+		gflags &= ~(BYTE_FLAG_INVERTTRIGGER);
+		buf[0] &= BYTE_FLAG_INVERTTRIGGER;
 		gflags |= buf[0];
+		sei();
+		send_parameters(buf);
+		break;
+	case COMMAND_SET_CHANNELS:
+		cli();
+		channels = buf[0];
 		sei();
 		send_parameters(buf);
 		break;
@@ -311,8 +326,11 @@ void loop() {
 	} else if (gflags & BYTE_FLAG_CONVERSIONDONE) {
 		cli();
 		gflags &= ~ BYTE_FLAG_CONVERSIONDONE;
+		/* Update flags */
+		dataBuffer[numSamples] = gflags & BYTE_FLAG_SAWTRIGGER ? 1: 0;
+		dataBuffer[numSamples+1] = channels;
 		sei();
-		send_packet(COMMAND_BUFFER_SEG, dataBuffer, numSamples);
+		send_packet(COMMAND_BUFFER_SEG, dataBuffer, numSamples + 2);
 	} else {
 	}
 }
@@ -331,23 +349,31 @@ ISR(ADC_vect)
 		holdoff--;
 		return;
 	}
+    flags &= ~BYTE_FLAG_JUST_TRIGGERED;
 
 	if (!(flags & BYTE_FLAG_TRIGGERED) && triggerLevel>0) {
 
 		if (autoTrigCount>0 && autoTrigCount >= autoTrigSamples ) {
 			flags |= BYTE_FLAG_TRIGGERED;
+			flags |= BYTE_FLAG_JUST_TRIGGERED;
 		} else {
 
 			if ( !(flags&BYTE_FLAG_INVERTTRIGGER) && ADCH>=triggerLevel && last<triggerLevel) {
-				flags |= BYTE_FLAG_TRIGGERED;
+
+				flags |= BYTE_FLAG_TRIGGERED|BYTE_FLAG_JUST_TRIGGERED|BYTE_FLAG_SAWTRIGGER;
+
 			} else if ( flags&BYTE_FLAG_INVERTTRIGGER && ADCH<=triggerLevel && last>triggerLevel) {
-				flags |= BYTE_FLAG_TRIGGERED;
+
+				flags |= BYTE_FLAG_TRIGGERED|BYTE_FLAG_JUST_TRIGGERED|BYTE_FLAG_SAWTRIGGER;
+
 			} else {
 				if (autoTrigSamples>0)
 					autoTrigCount++;
 			}
 		}
 	} else {
+		if (!(flags & BYTE_FLAG_TRIGGERED))
+			flags |= BYTE_FLAG_JUST_TRIGGERED; // no triggering
 		flags |= BYTE_FLAG_TRIGGERED;
 	}
 
@@ -361,13 +387,28 @@ ISR(ADC_vect)
 
 		if (flags & BYTE_FLAG_STOREDATA) {
 
-			 // Switch channel.
-			if (flags & BYTE_FLAG_DUALCHANNEL)
-				ADMUX = ADMUX ^ 1;
-			else
-				ADMUX &= 0xfe;
+			current_channel++;
 
-			dataBuffer[dataBufferPtr] = ADCH;
+			if (current_channel>=channels) {
+				// Overflow channel. Reset.
+				current_channel = 0;
+			}
+
+			ADMUX = (ADMUX&0xf0)|(current_channel&0xf);
+
+			if (!(flags & BYTE_FLAG_IGNORE_SAMPLE)) {
+				dataBuffer[dataBufferPtr] = ADCH;
+			} else {
+				// Go back one sample
+				dataBufferPtr--;
+			}
+
+			if (channels>1 && (flags&BYTE_FLAG_JUST_TRIGGERED)) {
+				flags |= BYTE_FLAG_IGNORE_SAMPLE; // Ignore next sample.
+			} else {
+                flags &= ~BYTE_FLAG_IGNORE_SAMPLE; // Ignore next sample.
+			}
+
 		}
 		dataBufferPtr++;
 
@@ -381,8 +422,10 @@ ISR(ADC_vect)
 
 			flags &= ~BYTE_FLAG_STOREDATA;
 			flags &= ~BYTE_FLAG_TRIGGERED;
-            // Reset muxer
-			ADMUX &= 0xfe;
+			flags &= ~BYTE_FLAG_SAWTRIGGER;
+			flags &= ~BYTE_FLAG_IGNORE_SAMPLE;
+			// Reset muxer
+			ADMUX &= 0xf0;
 			holdoff=holdoffSamples;
 			autoTrigCount=0;
 			dataBufferPtr=0;

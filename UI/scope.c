@@ -27,7 +27,6 @@ static void scope_display_init (ScopeDisplay *scope)
 {
 	scope->zoom=1;
 	scope->dbuf = NULL;
-	scope->dual = FALSE;
 	scope->xy = FALSE;
 #ifdef HAVE_DFT
 	scope->mode = MODE_NORMAL;
@@ -73,6 +72,13 @@ static void draw_grid(cairo_t *cr,const GtkAllocation *allocation)
 		cairo_stroke( cr );
 	}
 }
+
+struct { double r,g,b; } colors[] = {
+	{ 0.0,1.0,0.0 },    // Channel 0 - green
+	{ 1.0,1.0,0.0 },    // Channel 1 - yellow
+	{ 0.99,0.75,0.57 },    // Channel 2
+	{ 0.89,0.73,0.86 }    // Channel 3
+};
 
 static void draw(GtkWidget *scope, cairo_t *cr)
 {
@@ -120,44 +126,32 @@ static void draw(GtkWidget *scope, cairo_t *cr)
 #else
 	if (NULL!=self->dbuf) {
 
-		if (!self->dual) {
-			for (i=0; i<self->numSamples/self->zoom; i++) {
-				cairo_move_to(cr,lx,ly);
+		if (self->xy && self->channels == 2) {
+
+			lx=scope->allocation.x + scope->allocation.width / 2;
+			ly=scope->allocation.y + scope->allocation.height / 2;
+
+			for (i=0; i<self->numSamples; i+=2) {
+				cairo_move_to(cr,
+							  lx + ((int)self->dbuf[i])-127 ,
+							  ly + ((int)self->dbuf[i+1])-127
+							 );
 				lx=scope->allocation.x + i*self->zoom;
 				ly=scope->allocation.y+scope->allocation.height - self->dbuf[i];
 				cairo_line_to(cr,lx,ly);
 			}
 			cairo_stroke (cr);
+
 		} else {
-			if (self->xy) {
+			int start;
+			for (start=0; start<self->channels; start++) {
 
-				lx=scope->allocation.x + scope->allocation.width / 2;
-				ly=scope->allocation.y + scope->allocation.height / 2;
+				cairo_set_source_rgb(cr, colors[start].r,colors[start].g,colors[start].b);
 
-				for (i=0; i<self->numSamples; i+=2) {
-					cairo_move_to(cr,
-								  lx + ((int)self->dbuf[i])-127 ,
-								  ly + ((int)self->dbuf[i+1])-127
-								 );
-					lx=scope->allocation.x + i*self->zoom;
-					ly=scope->allocation.y+scope->allocation.height - self->dbuf[i];
-					cairo_line_to(cr,lx,ly);
-				}
-				cairo_stroke (cr);
-
-			} else {
-				for (i=0; i<self->numSamples/self->zoom; i+=2) {
-					cairo_move_to(cr,lx,ly);
-					lx=scope->allocation.x + i*self->zoom;
-					ly=scope->allocation.y+scope->allocation.height - self->dbuf[i];
-					cairo_line_to(cr,lx,ly);
-				}
-				cairo_stroke (cr);
-				cairo_set_source_rgb(cr,255,255,0);
-				lx=scope->allocation.x+1;
+				lx=scope->allocation.x+start;
 				ly=scope->allocation.y+scope->allocation.height;
 
-				for (i=1; i<self->numSamples/self->zoom; i+=2) {
+				for (i=start; i<self->numSamples/self->zoom; i+=self->channels) {
 					cairo_move_to(cr,lx,ly);
 					lx=scope->allocation.x + i*self->zoom;
 					ly=scope->allocation.y+scope->allocation.height - self->dbuf[i];
@@ -188,8 +182,8 @@ static void draw(GtkWidget *scope, cairo_t *cr)
 				 );
 	cairo_show_text(cr, text);
 
-	if (self->dual) {
-		sprintf(text,"fMax/chan: %.02fHz", self->freq/4);
+	if (self->channels>1) {
+		sprintf(text,"fMax/chan: %.02fHz", self->freq/(2*self->channels));
 	} else {
 		sprintf(text,"fMax: %.02fHz", self->freq/2);
 	}
@@ -278,11 +272,11 @@ void scope_display_set_trigger_level(GtkWidget *scope, unsigned char level)
 	gtk_widget_queue_draw(scope);
 }
 
-void scope_display_set_dual(GtkWidget *scope, gboolean value)
+void scope_display_set_channels(GtkWidget *scope, unsigned char channels)
 {
 	ScopeDisplay *self = SCOPE_DISPLAY(scope);
 
-	self->dual=value;
+	self->channels=channels;
 	gtk_widget_queue_draw(scope);
 
 }

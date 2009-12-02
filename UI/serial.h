@@ -28,7 +28,7 @@ void serial_set_holdoff(unsigned char holdoff);
 void serial_set_prescaler(unsigned char prescaler);
 void serial_set_vref(unsigned char vref);
 void serial_set_trigger_invert(gboolean active);
-void serial_set_dual_channel(gboolean active);
+void serial_set_channels(int channels);
 
 double get_sample_frequency(unsigned long freq, unsigned long prescaler);
 void serial_set_oneshot( void(*callback)(void*) , void *data);

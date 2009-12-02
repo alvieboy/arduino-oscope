@@ -36,7 +36,7 @@ struct _ScopeDisplay
 	unsigned short numSamples;
 	unsigned char tlevel;
 	unsigned int zoom;
-	gboolean dual;
+	unsigned char channels;
 	gboolean xy;
 	double freq;
 #ifdef HAVE_DFT
@@ -66,6 +66,6 @@ void scope_display_set_trigger_level(GtkWidget *scope, unsigned char level);
 void scope_display_set_zoom(GtkWidget *scope, unsigned int zoom);
 void scope_display_set_samples(GtkWidget *scope, unsigned short numSamples);
 void scope_display_set_sample_freq(GtkWidget *scope, double freq);
-void scope_display_set_dual(GtkWidget *scope, gboolean);
+void scope_display_set_channels(GtkWidget *scope, unsigned char);
 
 #endif
