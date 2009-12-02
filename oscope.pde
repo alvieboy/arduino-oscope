@@ -90,10 +90,6 @@ static uint8_t current_channel;
 
 #define BIT(x) (1<<x)
 
-const int ledPin = 13;
-const int sampleFreqPin = 2;
-const int pwmPin = 9;
-
 static void setup_adc()
 {
 	ADCSRA = 0;
@@ -153,12 +149,8 @@ void setup()
     gflags=0;
 
 	Serial.begin(BAUD_RATE);
-	pinMode(ledPin,OUTPUT);
-	pinMode(sampleFreqPin,OUTPUT);
 	setup_adc();
 
-	/* Simple test for PWM output */
-	analogWrite(pwmPin,127);
 
 	set_num_samples(962);
 	st = SIZE;
