@@ -16,26 +16,49 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
+#include <inttypes.h>
 #include <avr/io.h>
 #include <avr/power.h>
 #include <avr/interrupt.h>
 #include "protocol.h"
+#include "SerPro.h"
+#include "SerProHDLC.h"
 
 /* Baud rate, for communication with PC */
 #define BAUD_RATE 115200
 
-/* Serial processor state */
-enum state {
-	SIZE,
-	SIZE2,
-	COMMAND,
-	PAYLOAD,
-	CKSUM
+
+
+struct SerialWrapper
+{
+public:
+	static inline void write(uint8_t v){
+		Serial.write(v);
+	}
+	static inline void write(const uint8_t *buf,int size){
+		Serial.write(buf,size);
+	}
+        static void flush() {}
 };
+
+// 4 functions
+// 32 bytes maximum receive buffer size
+
+struct SerProConfig {
+	static unsigned int const maxFunctions = 16;
+	static unsigned int const maxPacketSize = 16;
+	static unsigned int const stationId = 3;
+};
+
+// SerialWrapper is class to handle tx
+// Name of class is SerPro
+// Protocol type is SerProPacket or SerProHDLC
+
+DECLARE_SERPRO(SerProConfig,SerialWrapper,SerProHDLC,SerPro);
 
 /* Maximum packet size we can receive from serial. We can however
  transmit more than this */
-#define MAX_PACKET_SIZE 9
+#define MAX_PACKET_SIZE 7
 
 /* Number of samples we support, i.e., dataBuffer size */
 static unsigned short numSamples;
@@ -68,27 +91,27 @@ static unsigned char adcref;
 /* Current flags. See defines below */
 static byte gflags = 0;
 
-static unsigned char pBuf[MAX_PACKET_SIZE];
+/*static unsigned char pBuf[MAX_PACKET_SIZE];
 static unsigned char cksum;
 static unsigned int pBufPtr;
 static unsigned short pSize;
 static unsigned char command;
 static enum state st;
-
-static uint8_t channels;
-static uint8_t current_channel;
+*/
 
 #define BYTE_FLAG_TRIGGERED       (1<<7) /* Signal is triggered */
 #define BYTE_FLAG_STARTCONVERSION (1<<6) /* Request conversion to start */
 #define BYTE_FLAG_CONVERSIONDONE  (1<<5) /* Conversion done flag */
 #define BYTE_FLAG_STOREDATA       (1<<4) /* Internal flag - store data in buffer */
-#define BYTE_FLAG_SAWTRIGGER      (1<<3) /* Whether we found trigger or was auto */
-#define BYTE_FLAG_IGNORE_SAMPLE   (1<<2) /* Ignore next sample - we have a 2-ADC clock delay */
-#define BYTE_FLAG_JUST_TRIGGERED  (1<<1) /* Just triggered */
 
+#define BYTE_FLAG_DUALCHANNEL     FLAG_DUAL_CHANNEL /* Dual-channel enabled */
 #define BYTE_FLAG_INVERTTRIGGER   FLAG_INVERT_TRIGGER /* Trigger is inverted (negative edge) */
 
 #define BIT(x) (1<<x)
+
+const int ledPin = 13;
+const int sampleFreqPin = 2;
+const int pwmPin = 9;
 
 static void setup_adc()
 {
@@ -98,7 +121,7 @@ static void setup_adc()
 	ADMUX = 0x20; // left-aligned, channel 0
 	ADMUX |= (adcref<<REFS0); // internal 1.1v reference, left-aligned, channel 0
 
-	PRR &= ~BIT(PRADC); /* Disable ADC power reduction */
+	//	PRR &= ~BIT(PRADC); /* Disable ADC power reduction */
 	ADCSRA = BIT(ADIE)|BIT(ADEN)|BIT(ADSC)|BIT(ADATE)|prescale; // Start conversion, enable autotrigger
 }
 
@@ -128,12 +151,10 @@ static void set_num_samples(unsigned short num)
 	cli();
 
 	numSamples  = num;
-	dataBuffer = (unsigned char*)malloc(numSamples + 2);
-    // Why +1 ? So we can store some flags and values.
+	dataBuffer = (unsigned char*)malloc(numSamples);
 
 	sei();
 }
-
 
 void setup()
 {
@@ -144,187 +165,37 @@ void setup()
 	autoTrigSamples = 255;
 	autoTrigCount = 0;
 	holdoffSamples = 0;
-	channels = 1;
-	current_channel = 0;
-    gflags=0;
 
 	Serial.begin(BAUD_RATE);
+	pinMode(ledPin,OUTPUT);
+	pinMode(sampleFreqPin,OUTPUT);
 	setup_adc();
 
+	/* Simple test for PWM output */
+	analogWrite(pwmPin,127);
 
 	set_num_samples(962);
-	st = SIZE;
 }
 
-static void send_packet(unsigned char command, unsigned char *buf, unsigned short size)
+static void send_parameters()
 {
-	unsigned char cksum=command;
-	unsigned short i;
-	unsigned short rsize = size;
-
-	rsize++;
-	if (rsize>127) {
-		rsize |= 0x8000; // Set MSBit on MSB
-		cksum^= (rsize>>8);
-		Serial.write((rsize>>8)&0xff);
-	}
-	cksum^= (rsize&0xff);
-	Serial.write(rsize&0xff);
-
-	Serial.write(command);
-
-	rsize=size;
-
-	for (i=0;i<rsize;i++) {
-		cksum^=buf[i];
-		Serial.write(buf[i]);
-	}
-	Serial.write(cksum);
+	SerPro::send(COMMAND_PARAMETERS_REPLY,
+				 triggerLevel,holdoffSamples,adcref,
+				 prescale,numSamples,gflags);
 }
 
-static void send_parameters(unsigned char*buf)
-{
-	buf[0] = triggerLevel;
-	buf[1] = holdoffSamples;
-	buf[2] = adcref;
-	buf[3] = prescale;
-	buf[4] = (numSamples >> 8);
-	buf[5] = numSamples & 0xff;
-	buf[6] = gflags;
-	buf[7] = channels;
-	send_packet(COMMAND_PARAMETERS_REPLY, buf, 8);
-}
-
-static void process_packet(unsigned char command, unsigned char *buf, unsigned short size)
-{
-	switch (command) {
-	case COMMAND_PING:
-		send_packet(COMMAND_PONG, buf, size);
-		break;
-	case COMMAND_GET_VERSION:
-		buf[0] = PROTOCOL_VERSION_HIGH;
-		buf[1] = PROTOCOL_VERSION_LOW;
-		send_packet(COMMAND_VERSION_REPLY, buf, 2);
-		break;
-	case COMMAND_START_SAMPLING:
-		start_sampling();
-		break;
-	case COMMAND_SET_TRIGGER:
-		triggerLevel = buf[0];
-		break;
-	case COMMAND_SET_HOLDOFF:
-		holdoffSamples = buf[0];
-		break;
-	case COMMAND_SET_VREF:
-		adcref = buf[0] & 0x3;
-		setup_adc();
-		break;
-	case COMMAND_SET_PRESCALER:
-		prescale = buf[0] & 0x7;
-		setup_adc();
-		break;
-	case COMMAND_SET_AUTOTRIG:
-		autoTrigSamples = buf[0];
-		autoTrigCount = 0; // Reset.
-		break;
-	case COMMAND_SET_SAMPLES:
-		set_num_samples((unsigned short)buf[0]<<8 | buf[1]);
-		/* No break - so we reply with parameters */
-	case COMMAND_GET_PARAMETERS:
-		send_parameters(buf);
-		break;
-	case COMMAND_SET_FLAGS:
-		cli();
-		gflags &= ~(BYTE_FLAG_INVERTTRIGGER);
-		buf[0] &= BYTE_FLAG_INVERTTRIGGER;
-		gflags |= buf[0];
-		sei();
-		send_parameters(buf);
-		break;
-	case COMMAND_SET_CHANNELS:
-		cli();
-		channels = buf[0];
-		sei();
-		send_parameters(buf);
-		break;
-	default:
-		send_packet(COMMAND_ERROR,NULL,0);
-		break;
-	}
-}
-
-
-static void process(unsigned char bIn)
-{
-	cksum^=bIn;
-
-	switch(st) {
-	case SIZE:
-		cksum = bIn;
-		if (bIn==0) {
-			break; // Reset procedure.
-		}
-		if (bIn & 0x80) {
-			pSize =((unsigned short)(bIn&0x7F)<<8);
-			st = SIZE2;
-		} else {
-			pSize = bIn;
-			if (bIn>MAX_PACKET_SIZE)
-				break;
-			pBufPtr = 0;
-			st = COMMAND;
-		}
-		break;
-
-	case SIZE2:
-		pSize += bIn;
-		if (bIn>MAX_PACKET_SIZE)
-			break;
-		pBufPtr = 0;
-		st = COMMAND;
-		break;
-
-	case COMMAND:
-
-		command = bIn;
-		pSize--;
-		if (pSize>0)
-			st = PAYLOAD;
-		else
-			st = CKSUM;
-		break;
-	case PAYLOAD:
-
-		pBuf[pBufPtr++] = bIn;
-		pSize--;
-		if (pSize==0) {
-			st = CKSUM;
-		}
-		break;
-
-	case CKSUM:
-		if (cksum==0) {
-			process_packet(command,pBuf,pBufPtr);
-		}
-		st = SIZE;
-	}
-}
 
 void loop() {
 	int bIn;
 	if (Serial.available()>0) {
 		bIn =  Serial.read();
-		process(bIn & 0xff);
+		SerPro::processData(bIn & 0xff);
 	} else if (gflags & BYTE_FLAG_CONVERSIONDONE) {
 		cli();
 		gflags &= ~ BYTE_FLAG_CONVERSIONDONE;
-		/* Update flags */
-		dataBuffer[numSamples] = gflags & BYTE_FLAG_SAWTRIGGER ? 1: 0;
-		dataBuffer[numSamples+1] = channels;
 		sei();
-		send_packet(COMMAND_BUFFER_SEG, dataBuffer, numSamples + 2);
-	} else {
-	}
+		SerPro::send<SerPro::VariableBuffer>(COMMAND_BUFFER_SEG, SerPro::VariableBuffer(dataBuffer, numSamples) );
+	} 
 }
 
 #define TRIGGER_NOISE_LEVEL 1
@@ -341,31 +212,23 @@ ISR(ADC_vect)
 		holdoff--;
 		return;
 	}
-    flags &= ~BYTE_FLAG_JUST_TRIGGERED;
 
 	if (!(flags & BYTE_FLAG_TRIGGERED) && triggerLevel>0) {
 
 		if (autoTrigCount>0 && autoTrigCount >= autoTrigSamples ) {
 			flags |= BYTE_FLAG_TRIGGERED;
-			flags |= BYTE_FLAG_JUST_TRIGGERED;
 		} else {
 
 			if ( !(flags&BYTE_FLAG_INVERTTRIGGER) && ADCH>=triggerLevel && last<triggerLevel) {
-
-				flags |= BYTE_FLAG_TRIGGERED|BYTE_FLAG_JUST_TRIGGERED|BYTE_FLAG_SAWTRIGGER;
-
+				flags |= BYTE_FLAG_TRIGGERED;
 			} else if ( flags&BYTE_FLAG_INVERTTRIGGER && ADCH<=triggerLevel && last>triggerLevel) {
-
-				flags |= BYTE_FLAG_TRIGGERED|BYTE_FLAG_JUST_TRIGGERED|BYTE_FLAG_SAWTRIGGER;
-
+				flags |= BYTE_FLAG_TRIGGERED;
 			} else {
 				if (autoTrigSamples>0)
 					autoTrigCount++;
 			}
 		}
 	} else {
-		if (!(flags & BYTE_FLAG_TRIGGERED))
-			flags |= BYTE_FLAG_JUST_TRIGGERED; // no triggering
 		flags |= BYTE_FLAG_TRIGGERED;
 	}
 
@@ -379,28 +242,13 @@ ISR(ADC_vect)
 
 		if (flags & BYTE_FLAG_STOREDATA) {
 
-			current_channel++;
+			 // Switch channel.
+			if (flags & BYTE_FLAG_DUALCHANNEL)
+				ADMUX = ADMUX ^ 1;
+			else
+				ADMUX &= 0xfe;
 
-			if (current_channel>=channels) {
-				// Overflow channel. Reset.
-				current_channel = 0;
-			}
-
-			ADMUX = (ADMUX&0xf0)|(current_channel&0xf);
-
-			if (!(flags & BYTE_FLAG_IGNORE_SAMPLE)) {
-				dataBuffer[dataBufferPtr] = ADCH;
-			} else {
-				// Go back one sample
-				dataBufferPtr--;
-			}
-
-			if (channels>1 && (flags&BYTE_FLAG_JUST_TRIGGERED)) {
-				flags |= BYTE_FLAG_IGNORE_SAMPLE; // Ignore next sample.
-			} else {
-                flags &= ~BYTE_FLAG_IGNORE_SAMPLE; // Ignore next sample.
-			}
-
+			dataBuffer[dataBufferPtr] = ADCH;
 		}
 		dataBufferPtr++;
 
@@ -414,10 +262,8 @@ ISR(ADC_vect)
 
 			flags &= ~BYTE_FLAG_STOREDATA;
 			flags &= ~BYTE_FLAG_TRIGGERED;
-			flags &= ~BYTE_FLAG_SAWTRIGGER;
-			flags &= ~BYTE_FLAG_IGNORE_SAMPLE;
-			// Reset muxer
-			ADMUX &= 0xf0;
+            // Reset muxer
+			ADMUX &= 0xfe;
 			holdoff=holdoffSamples;
 			autoTrigCount=0;
 			dataBufferPtr=0;
@@ -438,3 +284,71 @@ ISR(ADC_vect,ISR_NAKED)
 }
 
 #endif
+
+
+
+DECLARE_FUNCTION(COMMAND_PING)(const SerPro::RawBuffer &buf) {
+	SerPro::send<SerPro::RawBuffer>(COMMAND_PONG, buf);
+}
+END_FUNCTION
+
+DECLARE_FUNCTION(COMMAND_GET_VERSION)(void) {
+	SerPro::send<uint8_t,uint8_t>(COMMAND_VERSION_REPLY,PROTOCOL_VERSION_HIGH,PROTOCOL_VERSION_LOW);
+}
+END_FUNCTION
+
+DECLARE_FUNCTION(COMMAND_START_SAMPLING)(void) {
+	start_sampling();
+}
+END_FUNCTION
+
+DECLARE_FUNCTION(COMMAND_SET_TRIGGER)(uint8_t val) {
+	triggerLevel = val;
+}
+END_FUNCTION
+
+DECLARE_FUNCTION(COMMAND_SET_HOLDOFF)(uint8_t val) {
+	holdoffSamples = val;
+}
+END_FUNCTION
+
+DECLARE_FUNCTION(COMMAND_SET_VREF)(uint8_t val) {
+	adcref = val & 0x3;
+	setup_adc();
+}
+END_FUNCTION
+
+DECLARE_FUNCTION(COMMAND_SET_PRESCALER)(uint8_t val) {
+		prescale = val & 0x7;
+		setup_adc();
+}
+END_FUNCTION
+
+DECLARE_FUNCTION(COMMAND_SET_AUTOTRIG)(uint8_t val) {
+	autoTrigSamples = val;
+	autoTrigCount = 0; // Reset.
+}
+END_FUNCTION
+
+DECLARE_FUNCTION(COMMAND_SET_SAMPLES)(uint16_t val) {
+	set_num_samples(val);
+	send_parameters();
+}
+END_FUNCTION
+
+DECLARE_FUNCTION(COMMAND_GET_PARAMETERS)(void) {
+	send_parameters();
+}
+END_FUNCTION
+
+DECLARE_FUNCTION(COMMAND_SET_FLAGS)(uint8_t val) {
+	cli();
+	gflags &= ~(BYTE_FLAG_INVERTTRIGGER|BYTE_FLAG_DUALCHANNEL);
+	val &= BYTE_FLAG_INVERTTRIGGER|BYTE_FLAG_DUALCHANNEL;
+	gflags |= val;
+	sei();
+	send_parameters();
+}
+END_FUNCTION
+
+IMPLEMENT_SERPRO(16,SerPro,SerProHDLC);
