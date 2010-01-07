@@ -114,13 +114,13 @@
 	lds r19,(dataBufferPtr)+1	    ; into r19:r18
 
 .CHECKSTOREDATA: ;.L13:
-	movw r22,r24                        ; ??
-	andi r22,lo8(16)                    ; ??  bit 4
-	andi r23,hi8(16)                    ; ??  zero
-	sbrs r24,4                          ; awkward test: STORE_DATA set?
+	;movw r22,r24                        ; ??
+	;andi r22,lo8(16)                    ; ??  bit 4
+	;andi r23,hi8(16)                    ; ??  zero
+	sbrs r20,4                          ; awkward test: STORE_DATA set?
 	rjmp .NOSTORE ;.L14                           ; No, no store data
     
-	sbrc r24,1                          ; r24 was gflags... stupid gcc
+	sbrc r20,1                          ; r24 was gflags... stupid gcc
 	rjmp .DUALCHANNEL; .L29             ; Jump if dual channel
 
 	lds r24,124							; Load ADMUX
@@ -154,7 +154,8 @@
 	brlo .+2
 	rjmp .EXIT_SAVE_FLAGS; :.L12        ; Not yet filled. Bye bye
 
-	or r22,r23                          ; Stupid. flags&BYTE_FLAG_STOREDATA
+	;or r22,r23                          ; Stupid. flags&BYTE_FLAG_STOREDATA
+        sbrs r20,4
 	breq .FINALIZE_STORE ; .L17
 
 	ori r20,lo8(32)						; Set conversion_done
