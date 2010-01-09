@@ -20,6 +20,7 @@
 #define __SCOPE_H__
 
 #include <gtk/gtk.h>
+#include "channel.h"
 
 #ifdef HAVE_DFT
 #include <fftw3.h>
@@ -67,5 +68,6 @@ void scope_display_set_zoom(GtkWidget *scope, unsigned int zoom);
 void scope_display_set_samples(GtkWidget *scope, unsigned short numSamples);
 void scope_display_set_sample_freq(GtkWidget *scope, double freq);
 void scope_display_set_channels(GtkWidget *scope, unsigned char);
+struct channelConfig *scope_display_get_config_for_channel(GtkWidget *scope, int chan);
 
 #endif

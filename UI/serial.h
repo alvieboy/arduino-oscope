@@ -22,7 +22,8 @@
 #include <gtk/gtk.h>
 
 int serial_init(gchar*name);
-int serial_run( void (*setdata)(unsigned char *data,size_t size));
+int serial_run( void (*setdata)(unsigned char *data,size_t size),
+			   void (*setdigdata)(unsigned char *data,size_t size) );
 void serial_set_trigger_level(unsigned char trig);
 void serial_set_holdoff(unsigned char holdoff);
 void serial_set_prescaler(unsigned char prescaler);
