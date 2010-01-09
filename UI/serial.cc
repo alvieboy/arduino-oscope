@@ -188,6 +188,13 @@ DECLARE_FUNCTION(COMMAND_BUFFER_SEG)(const SerPro::RawBuffer &b)
 }
 END_FUNCTION
 
+template<>
+void handleEvent<LINK_UP>() {
+	fprintf(stderr,"Pinging device...\n");
+	SerPro::sendPacket(COMMAND_PING,(uint8_t*)"\001\002\003\004",4);
+}
+
+
 /*
 DECLARE_FUNCTION(COMMAND_DIG_BUFFER_SEG)(const SerPro::RawBuffer &b) {
 	fprintf(stderr,"Got digital data, %d samples\n",b.size);
@@ -329,8 +336,6 @@ int serial_run( void (*setdata)(unsigned char *data,size_t size), void (*setdigd
 	sdata = setdata;
 	sdigdata = setdigdata;
 	SerPro::connect();
-	fprintf(stderr,"Pinging device...\n");
-	SerPro::send<SerPro::VariableBuffer>(COMMAND_PING,SerPro::VariableBuffer((const unsigned char*)"\001\002\003\004",4));
 	loop();
 	return 0;
 }
