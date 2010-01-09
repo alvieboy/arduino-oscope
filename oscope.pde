@@ -48,7 +48,7 @@ struct SerProConfig {
 	static unsigned int const maxFunctions = 16;
 	static unsigned int const maxPacketSize = 16;
 	static unsigned int const stationId = 3;
-	static HDLCImplementationType const ImplementationType = Slave;
+	static SerProImplementationType const implementationType = Slave;
 };
 
 // SerialWrapper is class to handle tx

@@ -50,6 +50,7 @@ public:
 		GError *error = NULL;
 		gsize written;
 		g_io_channel_write_chars(channel,(const gchar*)&v,sizeof(v),&written,&error);
+		fprintf(stderr,"> %u\n",v);
 	}
 
 	static void write(const unsigned char *buf, unsigned int size) {
@@ -147,7 +148,7 @@ DECLARE_FUNCTION(COMMAND_PARAMETERS_REPLY)(const parameters_t *p)
 
 	if (state==GETPARAMETERS) {
 		in_request=TRUE;
-		SerPro::send(COMMAND_START_SAMPLING);
+		SerPro::sendPacket(COMMAND_START_SAMPLING);
 		state = SAMPLING;
 	}
 }
@@ -157,14 +158,14 @@ DECLARE_FUNCTION(COMMAND_PONG)(const SerPro::RawBuffer &b)
 {
 	printf("Got ping reply\n");
 	/* Request version */
-	SerPro::send(COMMAND_GET_VERSION);
+	SerPro::sendPacket(COMMAND_GET_VERSION);
 	state = GETVERSION;
 }
 END_FUNCTION
 
 DECLARE_FUNCTION(COMMAND_VERSION_REPLY)(uint8_t major,uint8_t minor) {
 	printf("Got version: OSCOPE %d.%d\n", major,minor);
-	SerPro::send(COMMAND_GET_PARAMETERS);
+	SerPro::sendPacket(COMMAND_GET_PARAMETERS);
 	state=GETPARAMETERS;
 }
 END_FUNCTION
@@ -179,7 +180,7 @@ DECLARE_FUNCTION(COMMAND_BUFFER_SEG)(const SerPro::RawBuffer &b)
 		oneshot_cb(oneshot_cb_data);
 	} else{
 		if (!freeze) {
-			SerPro::send(COMMAND_START_SAMPLING);
+			SerPro::sendPacket(COMMAND_START_SAMPLING);
 			in_request=TRUE;
 		}
 	}
