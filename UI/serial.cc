@@ -25,6 +25,8 @@
 #include <string.h>
 #include "serial.h"
 #include "../protocol.h"
+#include "../SerPro.h"
+#include "../SerProHDLC.h"
 
 static int fd = -1;
 
@@ -35,13 +37,47 @@ static gboolean freeze = FALSE;
 static gboolean delay_request = FALSE;
 static gboolean is_trigger_invert;
 
-#ifdef STANDALONE
-GMainLoop *loo;
-#endif
-
 static void (*sdata)(unsigned char *data,size_t size);
+static void (*sdigdata)(unsigned char *data,size_t size);
 static void (*oneshot_cb)(void*) = NULL;
+
 void *oneshot_cb_data;
+
+class SerialWrapper
+{
+public:
+	static void write(uint8_t v) {
+		GError *error = NULL;
+		gsize written;
+		g_io_channel_write_chars(channel,(const gchar*)&v,sizeof(v),&written,&error);
+	}
+
+	static void write(const unsigned char *buf, unsigned int size) {
+		GError *error = NULL;
+		gsize written;
+		g_io_channel_write_chars(channel,(const gchar*)buf,size,&written,&error);
+	}
+	static void flush() {
+		GError *error = NULL;
+		g_io_channel_flush(channel,&error);
+	}
+};
+
+class Timer
+{
+};
+
+struct SerProConfig {
+	static unsigned int const maxFunctions = 128;
+	static unsigned int const maxPacketSize = 1024;
+	static unsigned int const stationId = 0xFF; /* Only for HDLC */
+	static SerProImplementationType const implementationType = Master;
+};
+
+DECLARE_SERPRO( SerProConfig, SerialWrapper, SerProHDLC, SerPro);
+
+
+
 
 extern void scope_got_parameters(unsigned char triggerLevel,
 								 unsigned char holdoffSamples,
@@ -55,48 +91,13 @@ void sendchar(int i) {
 	char t = i &0xff;
 	gsize written;
 	GError *error = NULL;
+	fprintf(stderr,"Send %d\n",i);
 	g_io_channel_write_chars(channel,&t,sizeof(t),&written,&error);
-}
-
-void send_packet(unsigned char command, unsigned char *buf, unsigned short size)
-{
-	unsigned char cksum=0;
-	unsigned char i;
-	GError *error = NULL;
-
-	size++;
-	if (size>127) {
-		size |= 0x8000; // Set MSBit on MSB
-		cksum^= (size>>8);
-		sendchar((size>>8)&0xff);
-		size &= 0x7FFF;
+	if (NULL!=error) {
+		fprintf(stderr,"Cannot write ?!?!?!? %s\n", error->message);
+		return;
 	}
-	cksum^=(size&0xff);
-	sendchar(size&0xff);
-
-	sendchar(command);
-	cksum^=(unsigned char)command;
-
-	size--;
-
-	for (i=0;i<size;i++) {
-		cksum^=buf[i];
-		sendchar(buf[i]);
-	}
-
-	//printf("Sending cksum %u\n",cksum);
-	sendchar(cksum);
-	g_io_channel_flush(channel,&error);
 }
-
-enum packetstate {
-	SIZE,
-	SIZE2,
-	COMMAND,
-	PAYLOAD,
-	CKSUM
-};
-
 
 enum mystate {
 	PING,
@@ -107,134 +108,82 @@ enum mystate {
 
 static enum mystate state = PING;
 
-void process_packet(unsigned char command, unsigned char *buf, unsigned short size)
+/*
+DECLARE_FUNCTION(COMMAND_PARAMETERS_REPLY)(const parameters_t *p)
 {
-	unsigned short ns;
+	is_trigger_invert = p->flags & FLAG_INVERT_TRIGGER;
 
-	if (command==COMMAND_PARAMETERS_REPLY) {
-		ns = buf[4] << 8;
-		ns += buf[5];
-
-		is_trigger_invert = buf[6] & FLAG_INVERT_TRIGGER;
-
-		scope_got_parameters(buf[0],buf[1],buf[2],buf[3],ns,buf[6],buf[7]);
-		printf("Num samples: %d %d %d \n", ns, buf[4],buf[5]);
-		printf("Channels: %d \n",buf[7]);
+	unsigned char *r = (unsigned char*)p;
+	unsigned i;
+	for (i=0;i<sizeof(parameters_t);i++) {
+		printf("%02x ",(unsigned)r[i]);
 	}
+	printf("\n");
 
-	switch(state) {
+	printf("Num samples: %d\n", p->numSamples);
+	printf("Channels: %d \n",p->channels);
 
-	case PING:
-		if (command==COMMAND_PONG) {
-			printf("Got ping reply\n");
-			/* Request version */
-			send_packet(COMMAND_GET_VERSION,NULL,0);
-            state = GETVERSION;
-		}
-		break;
-	case GETVERSION:
-		if (command==COMMAND_VERSION_REPLY) {
-			printf("Got version: OSCOPE %d.%d\n", buf[0],buf[1]);
-			send_packet(COMMAND_GET_PARAMETERS,NULL,0);
-			state=GETPARAMETERS;
-		} else {
-			printf("Invalid packet %d\n",command);
-		}
-		break;
+	scope_got_parameters(p->triggerLevel,
+						 p->holdoffSamples,
+						 p->adcref,
+						 p->prescale,
+						 p->numSamples,
+						 p->flags,
+						 p->channels
+						);
 
-	case GETPARAMETERS:
+	if (state==GETPARAMETERS) {
 		in_request=TRUE;
-		send_packet(COMMAND_START_SAMPLING,NULL,0);
-
+		SerPro::send(COMMAND_START_SAMPLING);
 		state = SAMPLING;
-		break;
-
-	case SAMPLING:
-		sdata(buf, size);
-		if ( oneshot_cb && ! delay_request) {
-			in_request=FALSE;
-			oneshot_cb(oneshot_cb_data);
-		} else{
-			if (!freeze) {
-				send_packet(COMMAND_START_SAMPLING,NULL,0);
-				in_request=TRUE;
-			}
-		} 
-		delay_request=FALSE;
-		state=SAMPLING;
-
-		break;
-	default:
-		printf("Invalid packet %d\n",command);
 	}
 }
-
-void process(unsigned char bIn)
+END_FUNCTION
+*/
+DECLARE_FUNCTION(COMMAND_PONG)(const SerPro::RawBuffer &b)
 {
-	static unsigned char pBuf[1024];
-	static unsigned char cksum;
-	static unsigned int pBufPtr;
-	static unsigned short pSize;
-	static unsigned char command;
-
-	static enum packetstate st = SIZE;
-
-	cksum^=bIn;
-
-	switch(st) {
-	case SIZE:
-		cksum = bIn;
-		if (bIn==0)
-			break; // Reset procedure.
-		if (bIn & 0x80) {
-			pSize =((unsigned short)(bIn&0x7F)<<8);
-			st = SIZE2;
-		} else {
-			pSize = bIn;
-			pBufPtr = 0;
-			st = COMMAND;
-		}
-		break;
-
-	case SIZE2:
-		pSize += bIn;
-		//printf("S1: %u\n",bIn);
-		//printf("Large packet %u\n",pSize);
-		pBufPtr = 0;
-		st = COMMAND;
-		//printf("S+: %u\n",pSize);
-		break;
-
-	case COMMAND:
-
-		command = bIn;
-		//printf("CM: %u\n",command);
-		pSize--;
-		if (pSize>0)
-			st = PAYLOAD;
-		else
-			st = CKSUM;
-		break;
-	case PAYLOAD:
-
-		//printf("< %u %02x\n",pBufPtr,(unsigned) bIn);
-		pBuf[pBufPtr++] = bIn;
-		pSize--;
-		if (pSize==0) {
-			st = CKSUM;
-		}
-		break;
-
-	case CKSUM:
-		//printf("< SUM %02x\n",(unsigned) bIn);
-		if (cksum==0) {
-			process_packet(command,pBuf,pBufPtr);
-		} else {
-			printf("Packet fails checksum check\n");
-		}
-		st = SIZE;
-	}
+	printf("Got ping reply\n");
+	/* Request version */
+	SerPro::send(COMMAND_GET_VERSION);
+	state = GETVERSION;
 }
+END_FUNCTION
+
+DECLARE_FUNCTION(COMMAND_VERSION_REPLY)(uint8_t major,uint8_t minor) {
+	printf("Got version: OSCOPE %d.%d\n", major,minor);
+	SerPro::send(COMMAND_GET_PARAMETERS);
+	state=GETPARAMETERS;
+}
+END_FUNCTION
+
+
+DECLARE_FUNCTION(COMMAND_BUFFER_SEG)(const SerPro::RawBuffer &b)
+{
+	fprintf(stderr,"Got analog data, %d samples\n",b.size);
+	sdata(b.buffer, b.size);
+	if ( oneshot_cb && ! delay_request) {
+		in_request=FALSE;
+		oneshot_cb(oneshot_cb_data);
+	} else{
+		if (!freeze) {
+			SerPro::send(COMMAND_START_SAMPLING);
+			in_request=TRUE;
+		}
+	}
+	delay_request=FALSE;
+	state=SAMPLING;
+}
+END_FUNCTION
+
+/*
+DECLARE_FUNCTION(COMMAND_DIG_BUFFER_SEG)(const SerPro::RawBuffer &b) {
+	fprintf(stderr,"Got digital data, %d samples\n",b.size);
+	sdigdata(b.buffer,b.size);
+}
+END_FUNCTION
+*/
+
+IMPLEMENT_SERPRO(128,SerPro,SerProHDLC);
 
 gboolean serial_data_ready(GIOChannel *source,
 						   GIOCondition condition,
@@ -246,7 +195,7 @@ gboolean serial_data_ready(GIOChannel *source,
 
 	g_io_channel_read_chars(source,&c,1,&r,&error);
 	if (NULL==error && r==1)  {
-		process((unsigned char)c);
+		SerPro::processData((unsigned char)c);
 	}
 	return TRUE;
 }
@@ -260,20 +209,16 @@ void loop()
 
 void serial_reset_target()
 {
-	int i;
-	for (i=0; i<512; i++) {
-		sendchar(0x00);
-	}
 }
 
 void serial_set_trigger_level(unsigned char trig)
 {
-	send_packet(COMMAND_SET_TRIGGER,&trig,1);
+	SerPro::send<uint8_t>(COMMAND_SET_TRIGGER,trig);
 }
 
 void serial_set_holdoff(unsigned char holdoff)
 {
-	send_packet(COMMAND_SET_HOLDOFF,&holdoff,1);
+	SerPro::send<uint8_t>(COMMAND_SET_HOLDOFF,holdoff);
 }
 
 int real_serial_init(char *device)
@@ -314,6 +259,9 @@ int real_serial_init(char *device)
 		fprintf(stderr,"Cannot set encoding: %s\n", error->message);
 	}
 	error = NULL;
+    g_io_channel_set_buffered(channel, false);
+	
+
 	g_io_channel_set_flags (channel, G_IO_FLAG_NONBLOCK, &error);
 	if (error) {
 		fprintf(stderr,"Cannot set flags: %s\n", error->message);
@@ -333,14 +281,12 @@ int real_serial_init(char *device)
 }
 void serial_set_prescaler(unsigned char prescaler)
 {
-	// printf("Setting PRESCALE %d\n", prescaler);
-	send_packet(COMMAND_SET_PRESCALER,&prescaler,1);
+	SerPro::send<uint8_t>(COMMAND_SET_PRESCALER,prescaler);
 }
 
 void serial_set_vref(unsigned char vref)
 {
-	//	printf("Setting VREF %d\n", vref);
-	send_packet(COMMAND_SET_VREF,&vref,1);
+	SerPro::send<uint8_t>(COMMAND_SET_VREF,vref);
 }
 
 static void set_flags()
@@ -348,7 +294,7 @@ static void set_flags()
 	unsigned char c=0;
 	if (is_trigger_invert)
 		c|=FLAG_INVERT_TRIGGER;
-	send_packet(COMMAND_SET_FLAGS,&c,1);
+	SerPro::send<uint8_t>(COMMAND_SET_FLAGS,c);
 }
 
 
@@ -362,15 +308,16 @@ void serial_set_channels(int channels)
 	if (channels<1 || channels>4)
 		return;
 	unsigned char c = channels;
-	send_packet(COMMAND_SET_CHANNELS, &c, 1);
+	SerPro::send<uint8_t>(COMMAND_SET_CHANNELS, c);
 }
 
-int serial_run( void (*setdata)(unsigned char *data,size_t size))
+int serial_run( void (*setdata)(unsigned char *data,size_t size), void (*setdigdata)(unsigned char *data,size_t size) )
 {
 	sdata = setdata;
+	sdigdata = setdigdata;
 	serial_reset_target();
 	fprintf(stderr,"Pinging device...\n");
-	send_packet(COMMAND_PING,(unsigned char*)"BABA",4);
+	SerPro::send<SerPro::VariableBuffer>(COMMAND_PING,SerPro::VariableBuffer((const unsigned char*)"\001\002\003\004",4));
 	loop();
 	return 0;
 }
@@ -391,15 +338,15 @@ void serial_set_oneshot( void(*callback)(void*), void*data )
 		tvalue=100;
 	}
 
-	send_packet(COMMAND_SET_AUTOTRIG,&tvalue,1);
+	SerPro::send<uint8_t>(COMMAND_SET_AUTOTRIG,tvalue);
 
 	if (NULL==oneshot_cb && !in_request) {
-		send_packet(COMMAND_START_SAMPLING,NULL,0);
+		SerPro::send(COMMAND_START_SAMPLING);
 	} else {
 		if (in_request)
 			delay_request=TRUE;
 		else
-			send_packet(COMMAND_START_SAMPLING,NULL,0);
+			SerPro::send(COMMAND_START_SAMPLING);
 	}
 }
 

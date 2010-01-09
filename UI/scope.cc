@@ -20,6 +20,7 @@
 #include <cairo.h>
 #include <math.h>
 #include <string.h>
+#include "channel.h"
 
 G_DEFINE_TYPE (ScopeDisplay, scope_display, GTK_TYPE_DRAWING_AREA);
 
@@ -32,12 +33,15 @@ static void scope_display_init (ScopeDisplay *scope)
 	scope->mode = MODE_NORMAL;
 	scope->dbuf_real = NULL;
 	scope->dbuf_output = NULL;
+	int i;
+    for (i=0;i<4;i++)
+		scope->chancfg[i].gain=1.0;
 #endif
 }
 
 GtkWidget *scope_display_new (void)
 {
-	return g_object_new (SCOPE_DISPLAY_TYPE, NULL);
+	return (GtkWidget*)g_object_new (SCOPE_DISPLAY_TYPE, NULL);
 }
 
 static void draw_background(cairo_t *cr,const GtkAllocation *allocation)
@@ -72,8 +76,9 @@ static void draw_grid(cairo_t *cr,const GtkAllocation *allocation)
 		cairo_stroke( cr );
 	}
 }
+typedef struct { double r,g,b; } color_type;
 
-struct { double r,g,b; } colors[] = {
+color_type colors[] = {
 	{ 0.0,1.0,0.0 },    // Channel 0 - green
 	{ 1.0,1.0,0.0 },    // Channel 1 - yellow
 	{ 0.99,0.75,0.57 },    // Channel 2
@@ -83,7 +88,7 @@ struct { double r,g,b; } colors[] = {
 static void draw(GtkWidget *scope, cairo_t *cr)
 {
 	ScopeDisplay *self = SCOPE_DISPLAY(scope);
-	int i;
+	unsigned int i;
 	int lx=scope->allocation.x;
 	int ly=scope->allocation.y+scope->allocation.height;
 	cairo_text_extents_t te;
@@ -104,6 +109,7 @@ static void draw(GtkWidget *scope, cairo_t *cr)
 
 
 	cairo_set_source_rgb( cr, 0, 255, 0);
+	cairo_set_line_width(cr,1.0);
 
 #ifdef HAVE_DFT
 
@@ -143,7 +149,7 @@ static void draw(GtkWidget *scope, cairo_t *cr)
 			cairo_stroke (cr);
 
 		} else {
-			int start;
+			unsigned int start;
 			for (start=0; start<self->channels; start++) {
 
 				cairo_set_source_rgb(cr, colors[start].r,colors[start].g,colors[start].b);
@@ -152,12 +158,28 @@ static void draw(GtkWidget *scope, cairo_t *cr)
 				ly=scope->allocation.y+scope->allocation.height;
 
 				for (i=start; i<self->numSamples/self->zoom; i+=self->channels) {
+
+					// HACK - REMOVE
+					/*
+					 if ((i+2)&4) {
+						cairo_set_source_rgb(cr,1,0,0);
+					} else
+                        cairo_set_source_rgb(cr,0,1,0);
+                      */
+					//fprintf(stderr,"Gain %f\n",self->chancfg[start].gain);
+
 					cairo_move_to(cr,lx,ly);
 					lx=scope->allocation.x + i*self->zoom;
-					ly=scope->allocation.y+scope->allocation.height - self->dbuf[i];
+					ly=scope->allocation.y+scope->allocation.height - ((double)self->dbuf[i]*self->chancfg[start].gain)
+						- self->chancfg[start].ypos;
+					if (ly>255)
+						ly=255;
+					if (ly<0)
+						ly=0;
 					cairo_line_to(cr,lx,ly);
+					cairo_stroke (cr);
 				}
-				cairo_stroke (cr);
+
 			}
 		}
 	}
@@ -243,7 +265,7 @@ void scope_display_set_data(GtkWidget *scope, unsigned char *data, size_t size)
 	double dc;
 #endif
 
-	int i;
+	unsigned int i;
 	for (i=0; i<size && i<self->numSamples; i++) {
 		self->dbuf[i] = *d;
 #ifdef HAVE_DFT
@@ -280,6 +302,20 @@ void scope_display_set_channels(GtkWidget *scope, unsigned char channels)
 	gtk_widget_queue_draw(scope);
 
 }
+
+void scope_display_set_channel_config(GtkWidget *scope,
+									  int channel,
+									  int xpos,
+									  int ypos,
+                                      double gain)
+{
+	ScopeDisplay *self = SCOPE_DISPLAY(scope);
+	self->chancfg[channel].xpos=xpos;
+	self->chancfg[channel].ypos=ypos;
+	self->chancfg[channel].gain=gain;
+	gtk_widget_queue_draw(scope);
+}
+
 static gboolean scope_display_expose(GtkWidget *scope, GdkEventExpose *event)
 {
 	cairo_t *cr;
@@ -299,12 +335,17 @@ static gboolean scope_display_expose(GtkWidget *scope, GdkEventExpose *event)
 
 
 
-static void scope_display_class_init (ScopeDisplayClass *class)
+static void scope_display_class_init (ScopeDisplayClass *cl)
 {
 	GtkWidgetClass *widget_class;
 
-	widget_class = GTK_WIDGET_CLASS (class);
+	widget_class = GTK_WIDGET_CLASS (cl);
 
 	widget_class->expose_event = scope_display_expose;
 }
 
+struct channelConfig *scope_display_get_config_for_channel(GtkWidget *scope, int chan)
+{
+	ScopeDisplay *self = SCOPE_DISPLAY(scope);
+	return &(self->chancfg[chan]);
+}

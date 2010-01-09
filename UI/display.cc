@@ -18,22 +18,26 @@
 
 #include <gtk/gtk.h>
 #include "scope.h"
+#include "digitalscope.h"
 #include "serial.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
 #include "../protocol.h"
+#include "knob.h"
+
 
 GtkWidget *window;
 GdkPixbuf *pixbuf;
 GtkWidget *image;
+GtkWidget *digital_image;
 GtkWidget *vbox;
 GtkWidget *hbox;
 cairo_surface_t *surface;
 cairo_t *cr;
 
-GtkWidget *scale_trigger;
-GtkWidget *scale_holdoff;
+GtkWidget *knob_trigger;
+GtkWidget *knob_holdoff;
 GtkWidget *combo_prescaler;
 GtkWidget *combo_vref;
 GtkWidget *combo_channels;
@@ -57,6 +61,11 @@ void mysetdata(unsigned char *data,size_t size)
 	scope_display_set_data(image,data,size);
 }
 
+void mydigsetdata(unsigned char *data,size_t size)
+{
+	digital_scope_display_set_data(digital_image,data,size);
+}
+
 void scope_got_parameters(unsigned char triggerLevel,
 						  unsigned char holdoffSamples,
 						  unsigned char adcref,
@@ -67,10 +76,12 @@ void scope_got_parameters(unsigned char triggerLevel,
 {
 	numSamples=numS;
 	gtk_widget_set_size_request(image,numS,256);
+	gtk_widget_set_size_request(digital_image,numS,128);
 	scope_display_set_samples(image,numS);
 	scope_display_set_channels(image,num_channels);
-	gtk_range_set_value(GTK_RANGE(scale_trigger),triggerLevel);
-	gtk_range_set_value(GTK_RANGE(scale_holdoff),holdoffSamples);
+
+	knob_set_value(KNOB(knob_trigger),triggerLevel);
+	knob_set_value(KNOB(knob_holdoff),holdoffSamples);
 
 	switch(adcref) {
 	case 0:
@@ -89,7 +100,7 @@ void scope_got_parameters(unsigned char triggerLevel,
 
 gboolean trigger_level_changed(GtkWidget *widget)
 {
-	int l = (int)gtk_range_get_value(GTK_RANGE(widget));
+	int l = (int)knob_get_value(KNOB(widget));
 	serial_set_trigger_level(l & 0xff);
 	current_trigger_level=l&0xff;
 	scope_display_set_trigger_level(image,l&0xff);
@@ -98,7 +109,7 @@ gboolean trigger_level_changed(GtkWidget *widget)
 
 gboolean holdoff_level_changed(GtkWidget *widget)
 {
-	int l = (int)gtk_range_get_value(GTK_RANGE(widget));
+	int l = (int)knob_get_value(KNOB(widget));
 	serial_set_holdoff(l & 0xff);
 
 	return TRUE;
@@ -115,7 +126,8 @@ gboolean zoom_changed(GtkWidget *widget)
 gboolean prescaler_changed(GtkWidget *widget)
 {
 	gchar *c = gtk_combo_box_get_active_text(GTK_COMBO_BOX(widget));
-
+	if(!c)
+        return FALSE;
 	int base = (int)log2((double)atoi(c));
 	//printf("Prescale: 0x%x\n",base);
 	serial_set_prescaler(base);
@@ -161,7 +173,8 @@ void trigger_toggle_changed(GtkWidget *widget)
 void channels_changed(GtkWidget *widget)
 {
 	char *active_s = gtk_combo_box_get_active_text(GTK_COMBO_BOX(widget));
-	serial_set_channels(atoi(active_s));
+	if (active_s)
+		serial_set_channels(atoi(active_s));
 }
 
 void cancel_trigger(GtkDialog *widget)
@@ -205,7 +218,8 @@ gboolean trigger_single_shot(GtkWidget *widget)
 {
 	GtkWidget *dialog= gtk_dialog_new_with_buttons("Waiting for trigger...",
 												   GTK_WINDOW(window),
-												   GTK_DIALOG_MODAL|GTK_DIALOG_DESTROY_WITH_PARENT,
+
+												   (GtkDialogFlags)(GTK_DIALOG_MODAL|GTK_DIALOG_DESTROY_WITH_PARENT),
 												   GTK_STOCK_CANCEL,
 												   GTK_RESPONSE_REJECT,
 												   NULL);
@@ -228,6 +242,42 @@ int help(char*cmd)
 	printf("Usage: %s serialport\n\n",cmd);
 	printf("  example: %s /dev/ttyUSB0\n\n",cmd);
 	return -1;
+}
+
+void channel_changed_ypos(GtkWidget *knob, struct channelConfig *conf)
+{
+	conf->ypos = (int)knob_get_value(KNOB(knob));
+}
+
+void channel_changed_gain(GtkWidget *knob, struct channelConfig *conf)
+{
+	conf->gain = knob_get_value(KNOB(knob))/100.0;
+}
+
+GtkWidget *create_channel(const gchar *name, struct channelConfig *chanConfig)
+{
+	GtkWidget *frame = gtk_frame_new(name);
+
+	GtkWidget *hbox = gtk_hbox_new(FALSE,4);
+
+	/*
+	 GtkWidget *pos=knob_new_with_range("X-POS",-255,255,1,10,0);
+	 gtk_box_pack_start(GTK_BOX(hbox),pos,TRUE,TRUE,0);
+	 gtk_widget_set_size_request(pos,60,60);
+	 */
+
+	GtkWidget *pos=knob_new_with_range("Y-POS",-255,255,1,10,0);
+	gtk_box_pack_start(GTK_BOX(hbox),pos,TRUE,TRUE,0);
+	gtk_widget_set_size_request(pos,60,60);
+	g_signal_connect(G_OBJECT(pos),"value-changed",G_CALLBACK(&channel_changed_ypos),chanConfig);
+
+	pos=knob_new_with_range("GAIN",0,200,5,25,100);
+	gtk_box_pack_start(GTK_BOX(hbox),pos,TRUE,TRUE,0);
+	gtk_widget_set_size_request(pos,60,60);
+	g_signal_connect(G_OBJECT(pos),"value-changed",G_CALLBACK(&channel_changed_gain),chanConfig);
+
+	gtk_container_add(GTK_CONTAINER(frame), hbox);
+	return frame;
 }
 
 int main(int argc,char **argv)
@@ -259,23 +309,52 @@ int main(int argc,char **argv)
 	g_signal_connect(G_OBJECT(scale_zoom),"value-changed",G_CALLBACK(&zoom_changed),NULL);
 
 	image = scope_display_new();
-
+	digital_image = digital_scope_display_new();
 	gtk_box_pack_start(GTK_BOX(vbox),image,TRUE,TRUE,0);
+	gtk_box_pack_start(GTK_BOX(vbox),digital_image,TRUE,TRUE,0);
+
+	gtk_widget_set_size_request(digital_image,512,128);
+
+	//hbox = gtk_hbox_new(FALSE,4);
+	//gtk_box_pack_start(GTK_BOX(vbox),hbox,TRUE,TRUE,0);
+	//gtk_box_pack_start(GTK_BOX(hbox),gtk_label_new("Trigger level:"),TRUE,TRUE,0);
+
+	// TESTING
+
+	GtkWidget *frame = gtk_frame_new("Trigger");
+	gtk_box_pack_start(GTK_BOX(vbox),frame,TRUE,TRUE,0);
 
 	hbox = gtk_hbox_new(FALSE,4);
+
+	knob_trigger=knob_new_with_range("TRIGGER",0,255,1,10,0);
+	gtk_box_pack_start(GTK_BOX(hbox),knob_trigger,TRUE,TRUE,0);
+    gtk_widget_set_size_request(knob_trigger,60,60);
+	g_signal_connect(G_OBJECT(knob_trigger),"value-changed",G_CALLBACK(&trigger_level_changed),NULL);
+
+	knob_holdoff= knob_new_with_range("HOLD",0,255,1,10,0);
+	gtk_box_pack_start(GTK_BOX(hbox),knob_holdoff,TRUE,TRUE,0);
+	gtk_widget_set_size_request(knob_holdoff,60,60);
+	g_signal_connect(G_OBJECT(knob_holdoff),"value-changed",G_CALLBACK(&holdoff_level_changed),NULL);
+
+	gtk_container_add(GTK_CONTAINER(frame), hbox);
+
+
+	hbox = gtk_hbox_new(FALSE,4);
+
+	gtk_box_pack_start(GTK_BOX(hbox),create_channel("Channel A",scope_display_get_config_for_channel(image,0)),TRUE,TRUE,0);
+	gtk_box_pack_start(GTK_BOX(hbox),create_channel("Channel B",scope_display_get_config_for_channel(image,1)),TRUE,TRUE,0);
+	gtk_box_pack_start(GTK_BOX(hbox),create_channel("Channel C",scope_display_get_config_for_channel(image,2)),TRUE,TRUE,0);
+	gtk_box_pack_start(GTK_BOX(hbox),create_channel("Channel D",scope_display_get_config_for_channel(image,3)),TRUE,TRUE,0);
 	gtk_box_pack_start(GTK_BOX(vbox),hbox,TRUE,TRUE,0);
-	gtk_box_pack_start(GTK_BOX(hbox),gtk_label_new("Trigger level:"),TRUE,TRUE,0);
-	scale_trigger=gtk_hscale_new_with_range(0,255,1);
-	gtk_box_pack_start(GTK_BOX(hbox),scale_trigger,TRUE,TRUE,0);
-	g_signal_connect(G_OBJECT(scale_trigger),"value-changed",G_CALLBACK(&trigger_level_changed),NULL);
 
-	hbox = gtk_hbox_new(FALSE,4);
+
+/*	hbox = gtk_hbox_new(FALSE,4);
 	gtk_box_pack_start(GTK_BOX(vbox),hbox,TRUE,TRUE,0);
 	gtk_box_pack_start(GTK_BOX(hbox),gtk_label_new("Holdoff samples:"),TRUE,TRUE,0);
 	scale_holdoff=gtk_hscale_new_with_range(0,255,1);
 	gtk_box_pack_start(GTK_BOX(hbox),scale_holdoff,TRUE,TRUE,0);
 	g_signal_connect(G_OBJECT(scale_holdoff),"value-changed",G_CALLBACK(&holdoff_level_changed),NULL);
-
+  */
 	hbox = gtk_hbox_new(FALSE,4);
 	gtk_box_pack_start(GTK_BOX(vbox),hbox,TRUE,TRUE,0);
 	gtk_box_pack_start(GTK_BOX(hbox),gtk_label_new("Prescaler:"),TRUE,TRUE,0);
@@ -331,12 +410,10 @@ int main(int argc,char **argv)
 	gtk_box_pack_start(GTK_BOX(hbox),tog,TRUE,TRUE,0);
 	g_signal_connect(G_OBJECT(tog),"toggled",G_CALLBACK(&trigger_toggle_changed),NULL);
 
-
-
-	gtk_widget_show_all(window);
 	gtk_widget_set_size_request(image,512,256);
+    gtk_widget_show_all(window);
 
-	serial_run( &mysetdata );
+	serial_run( &mysetdata, &mydigsetdata );
 
 	gtk_main();
 

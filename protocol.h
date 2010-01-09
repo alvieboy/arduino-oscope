@@ -43,5 +43,6 @@
 #define COMMAND_ERROR          0xFF
 
 #define FLAG_INVERT_TRIGGER  (1<<0)
+#define FLAG_DUAL_CHANNEL    (1<<1)
 
 #endif

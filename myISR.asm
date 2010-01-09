@@ -78,11 +78,11 @@
 	brsh .TRIGGERED ;.L6				; We are triggered
     
 .NO_AUTOTRIGGER: ; L7:                  ; This one is pretty much stupid
-	mov r24,r20     					; r24 <= gflags
-	ldi r25,lo8(0)                      ; r25 == 0
-	movw r18,r24                        ; r18,r19 = r24,r25.
-	andi r18,lo8(1)                     ; and with 1 (INVERT)
-	andi r19,hi8(1)                     ; and 0 (INVERT???)
+	;mov r24,r20     					; r24 <= gflags
+	;ldi r25,lo8(0)                      ; r25 == 0
+	;movw r18,r24                        ; r18,r19 = r24,r25.
+	;andi r18,lo8(1)                     ; and with 1 (INVERT)
+	;andi r19,hi8(1)                     ; and 0 (INVERT???)
 	sbrc r20,0                          ; See if we have inverted trigger
 	rjmp .TRIGGER_INVERTED ;.L9         ; Yes, inverted trigger
 	; Alvie2 ; lds r24,121    						; Load ADCH into r24
@@ -134,8 +134,8 @@
 	add r30,r18                         ; add r19:r18(databuffer)
 	adc r31,r19                        
 	st Z, r0 ; Alvie2 ;r24                            ; Store ADCH into buffer
-	lds r18,dataBufferPtr          ; Load pointer again
-	lds r19,(dataBufferPtr)+1      ; into r19:r18
+	;lds r18,dataBufferPtr          ; Load pointer again
+	;lds r19,(dataBufferPtr)+1      ; into r19:r18
                                         ; This is stupid, is a non-increment
                                         ; op, should be st Z+ if we're to 
                                         ; refetch pointer.
@@ -206,8 +206,8 @@
 	rjmp .CHECKSTOREDATA ;.L13          ; No we did not end conversion
 
 	ori r20,lo8(16)			    ; Lets start conv. Set STOREDATA
-	mov r24,r20                         ; ?
-	ldi r25,lo8(0)                      ; ?
+	;mov r24,r20                         ; ?
+	;ldi r25,lo8(0)                      ; ?
 	rjmp .CHECKSTOREDATA                ; .L13
 
 .SET_LAST_HIGH: ;.L18:
