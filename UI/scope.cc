@@ -170,8 +170,8 @@ static void draw(GtkWidget *scope, cairo_t *cr)
 
 					cairo_move_to(cr,lx,ly);
 					lx=scope->allocation.x + i*self->zoom;
-					ly=scope->allocation.y+scope->allocation.height - ((double)self->dbuf[i]*self->chancfg[start].gain)
-						- self->chancfg[start].ypos;
+					ly=scope->allocation.y+scope->allocation.height - ((double)self->dbuf[i]*(double)self->chancfg[start].gain)
+						- (double)self->chancfg[start].ypos;
 					if (ly>255)
 						ly=255;
 					if (ly<0)
@@ -255,6 +255,10 @@ void scope_display_set_samples(GtkWidget *scope, unsigned short numSamples)
 
 
 }
+void scope_digital_set_data(GtkWidget *scope, unsigned char *data, size_t size)
+{
+}
+
 
 void scope_display_set_data(GtkWidget *scope, unsigned char *data, size_t size)
 {

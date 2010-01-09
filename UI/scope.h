@@ -46,7 +46,7 @@ struct _ScopeDisplay
 	enum { MODE_NORMAL,MODE_DFT } mode;
 	fftw_plan plan;
 #endif
-
+	struct channelConfig chancfg[4];
 };
 
 struct _ScopeDisplayClass

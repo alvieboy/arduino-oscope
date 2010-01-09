@@ -64,7 +64,7 @@ void mysetdata(unsigned char *data,size_t size)
 
 void mydigsetdata(unsigned char *data,size_t size)
 {
-	digital_scope_display_set_data(digital_image,data,size);
+	//digital_scope_display_set_data(digital_image,data,size);
 }
 
 void scope_got_parameters(unsigned char triggerLevel,
@@ -310,11 +310,12 @@ int main(int argc,char **argv)
 	g_signal_connect(G_OBJECT(scale_zoom),"value-changed",G_CALLBACK(&zoom_changed),NULL);
 
 	image = scope_display_new();
-	digital_image = digital_scope_display_new();
-	gtk_box_pack_start(GTK_BOX(vbox),image,TRUE,TRUE,0);
-	gtk_box_pack_start(GTK_BOX(vbox),digital_image,TRUE,TRUE,0);
 
-	gtk_widget_set_size_request(digital_image,512,128);
+	//digital_image = digital_scope_display_new();
+	gtk_box_pack_start(GTK_BOX(vbox),image,TRUE,TRUE,0);
+	//gtk_box_pack_start(GTK_BOX(vbox),digital_image,TRUE,TRUE,0);
+
+   // gtk_widget_set_size_request(digital_image,512,128);
 
 	//hbox = gtk_hbox_new(FALSE,4);
 	//gtk_box_pack_start(GTK_BOX(vbox),hbox,TRUE,TRUE,0);

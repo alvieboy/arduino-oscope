@@ -63,8 +63,21 @@ public:
 	}
 };
 
-class Timer
+class GLIBTimer
 {
+public:
+	typedef guint timer_t;
+	static timer_t addTimer( int (*cb)(void*), int milisseconds, void *data=0)
+	{
+		return g_timeout_add(milisseconds,cb,data);
+	}
+	static timer_t cancelTimer(const timer_t &t) {
+		g_source_remove(t);
+		return 0;
+	}
+	static inline bool defined(const timer_t &t) {
+		return t != 0;
+	}
 };
 
 struct SerProConfig {
@@ -74,7 +87,7 @@ struct SerProConfig {
 	static SerProImplementationType const implementationType = Master;
 };
 
-DECLARE_SERPRO( SerProConfig, SerialWrapper, SerProHDLC, SerPro);
+DECLARE_SERPRO_WITH_TIMER( SerProConfig, SerialWrapper, SerProHDLC, GLIBTimer, SerPro);
 
 
 
@@ -240,7 +253,7 @@ int real_serial_init(char *device)
 						 | INLCR | IGNCR | ICRNL | IXON);
 	termset.c_oflag &= ~OPOST;
 	termset.c_lflag &= ~(ECHO | ECHONL | ICANON | ISIG | IEXTEN);
-	termset.c_cflag &= ~(CSIZE | PARENB);
+	termset.c_cflag &= ~(CSIZE | PARENB| HUPCL);
 	termset.c_cflag |= CS8;
 
 	cfsetospeed(&termset,B115200);
@@ -315,7 +328,7 @@ int serial_run( void (*setdata)(unsigned char *data,size_t size), void (*setdigd
 {
 	sdata = setdata;
 	sdigdata = setdigdata;
-	serial_reset_target();
+	SerPro::connect();
 	fprintf(stderr,"Pinging device...\n");
 	SerPro::send<SerPro::VariableBuffer>(COMMAND_PING,SerPro::VariableBuffer((const unsigned char*)"\001\002\003\004",4));
 	loop();
