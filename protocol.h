@@ -19,6 +19,8 @@
 #ifndef __PROTOCOL_H__
 #define __PROTOCOL_H__
 
+#include <inttypes.h>
+
 /* Our version */
 #define PROTOCOL_VERSION_HIGH 0x04
 #define PROTOCOL_VERSION_LOW  0x01
@@ -44,5 +46,16 @@
 
 #define FLAG_INVERT_TRIGGER  (1<<0)
 #define FLAG_DUAL_CHANNEL    (1<<1)
+
+typedef struct {
+	uint8_t triggerLevel;
+	uint8_t holdoffSamples;
+	uint8_t adcref;
+	uint8_t prescale;
+	uint16_t numSamples;
+	uint8_t flags;
+	uint8_t channels;
+} __attribute__((packed)) parameters_t;
+
 
 #endif

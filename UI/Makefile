@@ -1,6 +1,8 @@
 all: oscope
 
-CXXFLAGS=$(shell pkg-config --cflags gtk+-2.0 cairo-xlib) -I.. -Wall 
+CXX=g++-4.3
+
+CXXFLAGS=$(shell pkg-config --cflags gtk+-2.0 cairo-xlib) -I.. -Wall -g
 
 #-DHAVE_DFT $(shell pkg-config --cflags fftw3)
 LIBS=$(shell pkg-config --libs gtk+-2.0) 

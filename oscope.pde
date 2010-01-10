@@ -62,7 +62,7 @@ DECLARE_SERPRO(SerProConfig,SerialWrapper,SerProHDLC,SerPro);
 #define MAX_PACKET_SIZE 7
 
 /* Number of samples we support, i.e., dataBuffer size */
-static unsigned short numSamples;
+//static unsigned short numSamples;
 
 /* Data buffer, where we store our samples. Allocated dinamically */
 static unsigned char *dataBuffer;
@@ -71,7 +71,7 @@ static unsigned char *dataBuffer;
 static unsigned short dataBufferPtr;
 
 /* Current trigger level. 0 means no trigger */
-static unsigned char triggerLevel;
+//static unsigned char triggerLevel;
 
 /* Auto-trigger samples. If we don't trigger and we reach this number of
  samples without triggerting, then we trigger */
@@ -81,16 +81,16 @@ static unsigned char autoTrigCount;
 /* Number of holdoff samples. This is the number of samples we ignore
  when we finish filling a buffer and before starting to look for trigger
  again */
-static unsigned char holdoffSamples;
+//static unsigned char holdoffSamples;
 
 /* Current prescaler value */
-static unsigned char prescale;
+//static unsigned char prescale;
 
 /* Current ACD reference */
-static unsigned char adcref;
+//static unsigned char adcref;
 
 /* Current flags. See defines below */
-static byte gflags = 0;
+//static byte gflags = 0;
 
 /*static unsigned char pBuf[MAX_PACKET_SIZE];
 static unsigned char cksum;
@@ -99,6 +99,8 @@ static unsigned short pSize;
 static unsigned char command;
 static enum state st;
 */
+
+static parameters_t params;
 
 #define BYTE_FLAG_TRIGGERED       (1<<7) /* Signal is triggered */
 #define BYTE_FLAG_STARTCONVERSION (1<<6) /* Request conversion to start */
@@ -120,17 +122,17 @@ static void setup_adc()
 	ADCSRB = 0; // Free-running mode
 	// DIDR0 = ~1; // Enable only first analog input
 	ADMUX = 0x20; // left-aligned, channel 0
-	ADMUX |= (adcref<<REFS0); // internal 1.1v reference, left-aligned, channel 0
+	ADMUX |= (params.adcref<<REFS0); // internal 1.1v reference, left-aligned, channel 0
 
 	//	PRR &= ~BIT(PRADC); /* Disable ADC power reduction */
-	ADCSRA = BIT(ADIE)|BIT(ADEN)|BIT(ADSC)|BIT(ADATE)|prescale; // Start conversion, enable autotrigger
+	ADCSRA = BIT(ADIE)|BIT(ADEN)|BIT(ADSC)|BIT(ADATE)|params.prescale; // Start conversion, enable autotrigger
 }
 
 static void start_sampling()
 {
 	cli();
-	gflags &= ~BYTE_FLAG_CONVERSIONDONE;
-	gflags |= BYTE_FLAG_STARTCONVERSION;
+	params.flags &= ~BYTE_FLAG_CONVERSIONDONE;
+	params.flags |= BYTE_FLAG_STARTCONVERSION;
 	sei();
 }
 
@@ -151,21 +153,22 @@ static void set_num_samples(unsigned short num)
 	/* NOTE - we must not change this while sampling!!! */
 	cli();
 
-	numSamples  = num;
-	dataBuffer = (unsigned char*)malloc(numSamples);
+	params.numSamples  = num;
+	dataBuffer = (unsigned char*)malloc(params.numSamples);
 
 	sei();
 }
 
 void setup()
 {
-	prescale = BIT(ADPS0)|BIT(ADPS1)|BIT(ADPS2);
-	adcref = 0x0; // Default
+	params.prescale = BIT(ADPS0)|BIT(ADPS1)|BIT(ADPS2);
+	params.adcref = 0x0; // Default
 	dataBuffer=NULL;
-	triggerLevel=0;
+	params.triggerLevel=0;
 	autoTrigSamples = 255;
 	autoTrigCount = 0;
-	holdoffSamples = 0;
+	params.holdoffSamples = 0;
+	params.channels = 1;
 
 	Serial.begin(BAUD_RATE);
 	pinMode(ledPin,OUTPUT);
@@ -180,9 +183,9 @@ void setup()
 
 static void send_parameters()
 {
-	SerPro::send(COMMAND_PARAMETERS_REPLY,
-				 triggerLevel,holdoffSamples,adcref,
-				 prescale,numSamples,gflags);
+	SerPro::send(COMMAND_PARAMETERS_REPLY,params);
+/*				 triggerLevel,holdoffSamples,adcref,
+				 prescale,numSamples,gflags,1);*/
 }
 
 
@@ -191,11 +194,11 @@ void loop() {
 	if (Serial.available()>0) {
 		bIn =  Serial.read();
 		SerPro::processData(bIn & 0xff);
-	} else if (gflags & BYTE_FLAG_CONVERSIONDONE) {
+	} else if (params.flags & BYTE_FLAG_CONVERSIONDONE) {
 		cli();
-		gflags &= ~ BYTE_FLAG_CONVERSIONDONE;
+		params.flags &= ~ BYTE_FLAG_CONVERSIONDONE;
 		sei();
-		SerPro::send<SerPro::VariableBuffer>(COMMAND_BUFFER_SEG, SerPro::VariableBuffer(dataBuffer, numSamples) );
+		SerPro::send<SerPro::VariableBuffer>(COMMAND_BUFFER_SEG, SerPro::VariableBuffer(dataBuffer, params.numSamples) );
 	} 
 }
 
@@ -207,22 +210,23 @@ ISR(ADC_vect)
 {
 	static unsigned char last=0;
 	static unsigned char holdoff;
-	register byte flags = gflags;
+	register byte flags = params.flags;
+	register byte sampled = ADCH;
 
 	if (holdoff>0) {
 		holdoff--;
 		return;
 	}
 
-	if (!(flags & BYTE_FLAG_TRIGGERED) && triggerLevel>0) {
+	if (!(flags & BYTE_FLAG_TRIGGERED) && params.triggerLevel>0) {
 
 		if (autoTrigCount>0 && autoTrigCount >= autoTrigSamples ) {
 			flags |= BYTE_FLAG_TRIGGERED;
 		} else {
 
-			if ( !(flags&BYTE_FLAG_INVERTTRIGGER) && ADCH>=triggerLevel && last<triggerLevel) {
+			if ( !(flags&BYTE_FLAG_INVERTTRIGGER) && sampled>=params.triggerLevel && last<params.triggerLevel) {
 				flags |= BYTE_FLAG_TRIGGERED;
-			} else if ( flags&BYTE_FLAG_INVERTTRIGGER && ADCH<=triggerLevel && last>triggerLevel) {
+			} else if ( flags&BYTE_FLAG_INVERTTRIGGER && sampled<=params.triggerLevel && last>params.triggerLevel) {
 				flags |= BYTE_FLAG_TRIGGERED;
 			} else {
 				if (autoTrigSamples>0)
@@ -233,7 +237,7 @@ ISR(ADC_vect)
 		flags |= BYTE_FLAG_TRIGGERED;
 	}
 
-	last=ADCH;
+	last=sampled;
 
 	if (flags & BYTE_FLAG_TRIGGERED) {
 
@@ -249,11 +253,11 @@ ISR(ADC_vect)
 			else
 				ADMUX &= 0xfe;
 
-			dataBuffer[dataBufferPtr] = ADCH;
+			dataBuffer[dataBufferPtr] = sampled;
 		}
 		dataBufferPtr++;
 
-		if (dataBufferPtr>numSamples) {
+		if (dataBufferPtr>params.numSamples) {
 
 			/* End of this conversion. Perform holdoff if needed */
 			if (flags & BYTE_FLAG_STOREDATA) {
@@ -265,7 +269,7 @@ ISR(ADC_vect)
 			flags &= ~BYTE_FLAG_TRIGGERED;
             // Reset muxer
 			ADMUX &= 0xfe;
-			holdoff=holdoffSamples;
+			holdoff=params.holdoffSamples;
 			autoTrigCount=0;
 			dataBufferPtr=0;
 			if (flags&BYTE_FLAG_INVERTTRIGGER)
@@ -274,7 +278,7 @@ ISR(ADC_vect)
 				last=255;
 		}
 	}
-	gflags=flags;
+	params.flags=flags;
 }
 
 #else
@@ -304,24 +308,24 @@ DECLARE_FUNCTION(COMMAND_START_SAMPLING)(void) {
 END_FUNCTION
 
 DECLARE_FUNCTION(COMMAND_SET_TRIGGER)(uint8_t val) {
-	triggerLevel = val;
+	params.triggerLevel = val;
 }
 END_FUNCTION
 
 DECLARE_FUNCTION(COMMAND_SET_HOLDOFF)(uint8_t val) {
-	holdoffSamples = val;
+	params.holdoffSamples = val;
 }
 END_FUNCTION
 
 DECLARE_FUNCTION(COMMAND_SET_VREF)(uint8_t val) {
-	adcref = val & 0x3;
+	params.adcref = val & 0x3;
 	setup_adc();
 }
 END_FUNCTION
 
 DECLARE_FUNCTION(COMMAND_SET_PRESCALER)(uint8_t val) {
-		prescale = val & 0x7;
-		setup_adc();
+	params.prescale = val & 0x7;
+	setup_adc();
 }
 END_FUNCTION
 
@@ -344,9 +348,9 @@ END_FUNCTION
 
 DECLARE_FUNCTION(COMMAND_SET_FLAGS)(uint8_t val) {
 	cli();
-	gflags &= ~(BYTE_FLAG_INVERTTRIGGER|BYTE_FLAG_DUALCHANNEL);
+	params.flags &= ~(BYTE_FLAG_INVERTTRIGGER|BYTE_FLAG_DUALCHANNEL);
 	val &= BYTE_FLAG_INVERTTRIGGER|BYTE_FLAG_DUALCHANNEL;
-	gflags |= val;
+	params.flags |= val;
 	sei();
 	send_parameters();
 }

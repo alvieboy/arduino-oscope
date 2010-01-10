@@ -122,7 +122,7 @@ enum mystate {
 
 static enum mystate state = PING;
 
-/*
+
 DECLARE_FUNCTION(COMMAND_PARAMETERS_REPLY)(const parameters_t *p)
 {
 	is_trigger_invert = p->flags & FLAG_INVERT_TRIGGER;
@@ -148,12 +148,15 @@ DECLARE_FUNCTION(COMMAND_PARAMETERS_REPLY)(const parameters_t *p)
 
 	if (state==GETPARAMETERS) {
 		in_request=TRUE;
+        printf("Requesting samples\n");
 		SerPro::sendPacket(COMMAND_START_SAMPLING);
 		state = SAMPLING;
+	} else {
+		printf("Not requesting samples\n");
 	}
 }
 END_FUNCTION
-*/
+
 DECLARE_FUNCTION(COMMAND_PONG)(const SerPro::RawBuffer &b)
 {
 	printf("Got ping reply\n");
@@ -180,6 +183,7 @@ DECLARE_FUNCTION(COMMAND_BUFFER_SEG)(const SerPro::RawBuffer &b)
 		oneshot_cb(oneshot_cb_data);
 	} else{
 		if (!freeze) {
+			printf("Requesting more samples\n");
 			SerPro::sendPacket(COMMAND_START_SAMPLING);
 			in_request=TRUE;
 		}
@@ -232,14 +236,14 @@ void serial_reset_target()
 {
 }
 
-void serial_set_trigger_level(unsigned char trig)
+void serial_set_trigger_level(uint8_t trig)
 {
-	SerPro::send<uint8_t>(COMMAND_SET_TRIGGER,trig);
+	SerPro::sendPacket(COMMAND_SET_TRIGGER,trig);
 }
 
 void serial_set_holdoff(unsigned char holdoff)
 {
-	SerPro::send<uint8_t>(COMMAND_SET_HOLDOFF,holdoff);
+	SerPro::sendPacket(COMMAND_SET_HOLDOFF,holdoff);
 }
 
 int real_serial_init(char *device)
@@ -302,12 +306,12 @@ int real_serial_init(char *device)
 }
 void serial_set_prescaler(unsigned char prescaler)
 {
-	SerPro::send<uint8_t>(COMMAND_SET_PRESCALER,prescaler);
+	SerPro::sendPacket<uint8_t>(COMMAND_SET_PRESCALER,prescaler);
 }
 
 void serial_set_vref(unsigned char vref)
 {
-	SerPro::send<uint8_t>(COMMAND_SET_VREF,vref);
+	SerPro::sendPacket<uint8_t>(COMMAND_SET_VREF,vref);
 }
 
 static void set_flags()
@@ -315,7 +319,7 @@ static void set_flags()
 	unsigned char c=0;
 	if (is_trigger_invert)
 		c|=FLAG_INVERT_TRIGGER;
-	SerPro::send<uint8_t>(COMMAND_SET_FLAGS,c);
+	SerPro::sendPacket<uint8_t>(COMMAND_SET_FLAGS,c);
 }
 
 
@@ -329,7 +333,7 @@ void serial_set_channels(int channels)
 	if (channels<1 || channels>4)
 		return;
 	unsigned char c = channels;
-	SerPro::send<uint8_t>(COMMAND_SET_CHANNELS, c);
+	SerPro::sendPacket<uint8_t>(COMMAND_SET_CHANNELS, c);
 }
 
 int serial_run( void (*setdata)(unsigned char *data,size_t size), void (*setdigdata)(unsigned char *data,size_t size) )
@@ -357,15 +361,15 @@ void serial_set_oneshot( void(*callback)(void*), void*data )
 		tvalue=100;
 	}
 
-	SerPro::send<uint8_t>(COMMAND_SET_AUTOTRIG,tvalue);
+	SerPro::sendPacket<uint8_t>(COMMAND_SET_AUTOTRIG,tvalue);
 
 	if (NULL==oneshot_cb && !in_request) {
-		SerPro::send(COMMAND_START_SAMPLING);
+		SerPro::sendPacket(COMMAND_START_SAMPLING);
 	} else {
 		if (in_request)
 			delay_request=TRUE;
 		else
-			SerPro::send(COMMAND_START_SAMPLING);
+			SerPro::sendPacket(COMMAND_START_SAMPLING);
 	}
 }
 
