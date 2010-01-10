@@ -192,7 +192,7 @@ END_FUNCTION
 template<>
 void handleEvent<LINK_UP>() {
 	fprintf(stderr,"Pinging device...\n");
-	SerPro::sendPacket(COMMAND_PING,(uint8_t*)"\001\002\003\004",4);
+	SerPro::sendPacket<uint8_t,uint8_t,uint8_t,uint8_t>(COMMAND_PING,1,2,3,4);
 }
 
 

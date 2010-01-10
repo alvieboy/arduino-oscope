@@ -77,3 +77,30 @@ serial.o: serial.h ../protocol.h ../SerPro.h /usr/include/stdint.h
 serial.o: /usr/include/bits/wchar.h ../Packet.h /usr/include/inttypes.h
 serial.o: ../SerProCommon.h ../preprocessor_table.h ../SerProHDLC.h
 serial.o: ../crc16.h
+../Packet.o: /usr/include/inttypes.h /usr/include/features.h
+../Packet.o: /usr/include/bits/predefs.h /usr/include/sys/cdefs.h
+../Packet.o: /usr/include/bits/wordsize.h /usr/include/gnu/stubs.h
+../Packet.o: /usr/include/gnu/stubs-32.h /usr/include/stdint.h
+../Packet.o: /usr/include/bits/wchar.h
+../SerPro.o: /usr/include/stdint.h /usr/include/features.h
+../SerPro.o: /usr/include/bits/predefs.h /usr/include/sys/cdefs.h
+../SerPro.o: /usr/include/bits/wordsize.h /usr/include/gnu/stubs.h
+../SerPro.o: /usr/include/gnu/stubs-32.h /usr/include/bits/wchar.h
+../SerPro.o: /usr/include/string.h /usr/include/xlocale.h ../Packet.h
+../SerPro.o: /usr/include/inttypes.h ../SerProCommon.h
+../SerPro.o: ../preprocessor_table.h
+../SerProHDLC.o: /usr/include/inttypes.h /usr/include/features.h
+../SerProHDLC.o: /usr/include/bits/predefs.h /usr/include/sys/cdefs.h
+../SerProHDLC.o: /usr/include/bits/wordsize.h /usr/include/gnu/stubs.h
+../SerProHDLC.o: /usr/include/gnu/stubs-32.h /usr/include/stdint.h
+../SerProHDLC.o: /usr/include/bits/wchar.h ../crc16.h ../SerProCommon.h
+../SerProHDLC.o: ../Packet.h /usr/include/stdio.h /usr/include/bits/types.h
+../SerProHDLC.o: /usr/include/bits/typesizes.h /usr/include/libio.h
+../SerProHDLC.o: /usr/include/_G_config.h /usr/include/wchar.h
+../SerProHDLC.o: /usr/include/bits/stdio_lim.h
+../SerProHDLC.o: /usr/include/bits/sys_errlist.h
+../crc16.o: /usr/include/inttypes.h /usr/include/features.h
+../crc16.o: /usr/include/bits/predefs.h /usr/include/sys/cdefs.h
+../crc16.o: /usr/include/bits/wordsize.h /usr/include/gnu/stubs.h
+../crc16.o: /usr/include/gnu/stubs-32.h /usr/include/stdint.h
+../crc16.o: /usr/include/bits/wchar.h
