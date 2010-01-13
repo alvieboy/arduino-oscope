@@ -130,7 +130,7 @@ gboolean prescaler_changed(GtkWidget *widget)
 	if(!c)
         return FALSE;
 	int base = (int)log2((double)atoi(c));
-	//printf("Prescale: 0x%x\n",base);
+	printf("Prescale: 0x%x\n",base);
 	serial_set_prescaler(base);
 
 	double fsample = get_sample_frequency(arduino_freq, atol(c));

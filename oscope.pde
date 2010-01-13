@@ -27,7 +27,7 @@
 /* Baud rate, for communication with PC */
 #define BAUD_RATE 115200
 
-
+#define FASTISR
 
 struct SerialWrapper
 {
@@ -61,7 +61,12 @@ DECLARE_SERPRO(SerProConfig,SerialWrapper,SerProHDLC,SerPro);
 static unsigned char *dataBuffer;
 
 /* Current buffer position, used to store data on buffer */
+
+#ifndef FASTISR
 static unsigned short dataBufferPtr;
+#else
+unsigned char *storePtr,*endPtr;
+#endif
 
 /* Auto-trigger samples. If we don't trigger and we reach this number of
  samples without triggerting, then we trigger */
@@ -84,6 +89,20 @@ const int ledPin = 13;
 const int sampleFreqPin = 2;
 const int pwmPin = 9;
 
+static void stop_adc()
+{
+	ADCSRA = BIT(ADSC)|BIT(ADATE)|params.prescale; // Start conversion, enable autotrigger
+}
+
+static void start_adc()
+{
+	if (params.prescale<=2) {
+		ADCSRA = BIT(ADEN)|BIT(ADSC)|BIT(ADATE)|params.prescale; // Start conversion, enable autotrigger
+	} else {
+		ADCSRA = BIT(ADIE)|BIT(ADEN)|BIT(ADSC)|BIT(ADATE)|params.prescale; // Start conversion, enable autotrigger
+	}
+}
+
 static void setup_adc()
 {
 	ADCSRA = 0;
@@ -93,25 +112,34 @@ static void setup_adc()
 	ADMUX |= (params.adcref<<REFS0); // internal 1.1v reference, left-aligned, channel 0
 
 	//	PRR &= ~BIT(PRADC); /* Disable ADC power reduction */
-	ADCSRA = BIT(ADIE)|BIT(ADEN)|BIT(ADSC)|BIT(ADATE)|params.prescale; // Start conversion, enable autotrigger
-}
-
-static void stop_adc()
-{
-	ADCSRA = BIT(ADSC)|BIT(ADATE)|params.prescale; // Start conversion, enable autotrigger
-}
-
-static void start_adc()
-{
-	ADCSRA = BIT(ADIE)|BIT(ADEN)|BIT(ADSC)|BIT(ADATE)|params.prescale; // Start conversion, enable autotrigger
+	sei();
+	start_adc();
 }
 
 static void start_sampling()
 {
 	cli();
-	params.flags &= ~BYTE_FLAG_CONVERSIONDONE;
-	params.flags |= BYTE_FLAG_STARTCONVERSION;
-	sei();
+	if (params.prescale<=2) {
+		/* Fast sampling loop */
+		storePtr=dataBuffer;
+		ADCSRA = BIT(ADEN)|BIT(ADSC)|BIT(ADATE)|params.prescale; // Start conversion, enable autotrigger
+		do {
+			while (!ADCSRA&BIT(ADIF));
+			ADCSRA&=~BIT(ADIF);
+			*storePtr++=ADCH;
+		} while (storePtr!=endPtr);
+		storePtr=dataBuffer;
+		
+		sei();
+		SerPro::send<SerPro::VariableBuffer>(COMMAND_BUFFER_SEG, SerPro::VariableBuffer(dataBuffer, params.numSamples) );
+	}
+	else {
+		params.flags &= ~BYTE_FLAG_CONVERSIONDONE;
+		params.flags |= BYTE_FLAG_STARTCONVERSION;
+		ADCSRA |= BIT(ADEN);
+		sei();
+	}
+
 }
 
 static void adc_set_frequency(unsigned char divider)
@@ -133,7 +161,10 @@ static void set_num_samples(unsigned short num)
 
 	params.numSamples  = num;
 	dataBuffer = (unsigned char*)malloc(params.numSamples);
-
+#ifdef FASTISR
+	storePtr = dataBuffer;
+	endPtr = dataBuffer+params.numSamples+1;
+#endif
 	sei();
 }
 
@@ -154,6 +185,9 @@ void setup()
 	setup_adc();
 
 	/* Simple test for PWM output */
+	TCCR0B = TCCR0B & 0b11111000 | 0x01; // 62.5KHz
+	TCCR1B = TCCR1B & 0b11111000 | 0x01; // 62.5KHz
+	TCCR2B = TCCR2B & 0b11111000 | 0x01; // 62.5KHz
 	analogWrite(pwmPin,127);
 
 	set_num_samples(962);
@@ -187,7 +221,7 @@ void loop() {
 uint8_t last = 0;
 uint8_t holdoff;
 
-#if 1
+#ifndef FASTISR
 
 ISR(ADC_vect)
 {
@@ -279,13 +313,101 @@ ISR(ADC_vect)
 	params.flags=flags;
 }
 
-#else
+#else // FASTISR
 
+#if 1
+ISR(ADC_vect)
+{
+	register byte flags = params.flags;
+	register byte sampled = ADCH;
+
+	if (flags & BYTE_FLAG_STARTCONVERSION) {
+		flags |= BYTE_FLAG_STOREDATA;
+		flags &= ~BYTE_FLAG_STARTCONVERSION;
+		goto do_store;
+	}
+
+	if (flags & BYTE_FLAG_STOREDATA) {
+	do_store:
+		*storePtr++ = sampled;
+
+
+		if (storePtr == endPtr) {
+
+			flags |= BYTE_FLAG_CONVERSIONDONE;
+			flags &= ~BYTE_FLAG_STOREDATA;
+
+			storePtr = dataBuffer;
+		}
+	}
+
+	params.flags=flags;
+}
+#else
 ISR(ADC_vect,ISR_NAKED)
 {
-	reti();
-}
+	push __zero_reg__
+	push r0
+	in r0,__SREG__
+	push r0
+	clr __zero_reg__
+	push r18
+	push r19
+	push r20
+	push r24
+	push r25
+	push r30
+	push r31
+	lds r20,_ZL6params+6
+	lds r25,121
+	sbrs r20,6
+	ori r20,lo8(16)
+	andi r20,lo8(-65)
 
+.STOREDATA:
+	lds r30,storePtr
+	lds r31,(storePtr)+1
+	st Z+,r25
+	sts (storePtr)+1,r31
+	sts storePtr,r30
+	lds r24,endPtr
+	lds r25,(endPtr)+1
+	cp r30,r24
+	cpc r31,r25
+	breq .ENDCONVERSION
+
+.EXITISR:
+	sts _ZL6params+6,r20
+/* epilogue start */
+	pop r31
+	pop r30
+	pop r25
+	pop r24
+	pop r20
+	pop r19
+	pop r18
+	pop r0
+	out __SREG__,r0
+	pop r0
+	pop __zero_reg__
+	reti
+.L4:
+	sbrs r20,4
+	rjmp .EXITISR
+	rjmp .STOREDATA
+
+.ENDCONVERSION:
+
+	ori r20,lo8(32)
+	andi r20,lo8(-17)
+	lds r24,_ZL10dataBuffer
+	lds r25,(_ZL10dataBuffer)+1
+	sts (storePtr)+1,r25
+	sts storePtr,r24
+	rjmp .EXITISR
+
+}
+#endif
 #endif
 
 
