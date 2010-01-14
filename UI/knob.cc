@@ -37,6 +37,8 @@ static void knob_init (Knob *knob)
 {
 	// Defaults
 	knob->rest_angle = G_PI_4;
+	knob->validator = NULL;
+	knob->divisions = 13;
 }
 
 GtkWidget *knob_new_with_range(const gchar *label, double min, double max, double step,double page, double def)
@@ -73,6 +75,17 @@ GtkWidget *knob_new(const gchar *label, GtkAdjustment *adj)
 					  G_CALLBACK (knob_adjustment_value_changed),
 					  self);
 	return w;
+}
+
+void knob_set_validator(Knob *self, long (*validator)(long,Knob*))
+{
+	self->validator = validator;
+}
+
+void knob_set_divisions(Knob*self, long divisions)
+{
+	self->divisions = divisions;
+	gtk_widget_queue_draw(GTK_WIDGET(self));
 }
 
 static void compute_extents(GtkWidget *knob, cairo_t *cr)
@@ -136,10 +149,11 @@ static void draw(GtkWidget *knob, cairo_t *cr)
 	// Draw metering lines
 
 	double i;         
-	int z;
+	unsigned int z;
+	double delta = (G_PI*2.0 - 2.0*self->rest_angle)/(double)(self->divisions-1);
 	for (z=0, i=self->rest_angle + G_PI_2;
-		 z<13;
-		 i+=self->rest_angle/2.0,z++) {
+		 z<self->divisions;
+		 i+=/*self->rest_angle/2.0*/delta,z++) {
 
 		cairo_move_to(cr, w/2.0 + 14.0*cos(i), h/2.0+14.0*sin(i));
 		cairo_line_to(cr, w/2.0 + 18.0*cos(i), h/2.0+18.0*sin(i));
@@ -259,6 +273,7 @@ static void knob_set_value_by_vector(Knob *self,double dx, double dy)
 	// Compute angle
 	double angle;
 	double arange = 2*G_PI-(2*self->rest_angle); // Angle range
+	long new_value;
 
 	angle = atan2(dx,dy);
 	if (angle<0)
@@ -272,13 +287,18 @@ static void knob_set_value_by_vector(Knob *self,double dx, double dy)
 	printf("Value: %f\n",adj->lower + (adj->upper-adj->lower) * (angle-self->rest_angle)/arange);
 
 	if (angle<self->rest_angle){
-		gtk_adjustment_set_value(adj, adj->lower);
+		new_value = adj->lower;
 	} else if (angle > 2*G_PI-self->rest_angle) {
-		gtk_adjustment_set_value(adj, adj->upper);
+		new_value = adj->upper;
 	} else {
-		gtk_adjustment_set_value(adj, adj->lower + (adj->upper-adj->lower) * (angle-self->rest_angle)/arange);
+		new_value = adj->lower + (adj->upper-adj->lower) * (angle-self->rest_angle)/arange;
 	}
 
+	if (NULL!=self->validator) {
+		new_value = self->validator(new_value,self);
+	}
+
+	gtk_adjustment_set_value(adj, new_value);
 
 }
 

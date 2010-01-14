@@ -37,7 +37,8 @@ struct _Knob
 	cairo_text_extents_t title_extents;
 	cairo_text_extents_t value_extents;
 
-
+	long (*validator)(long value,struct _Knob *);
+	unsigned divisions;
 };
 
 struct _KnobClass
@@ -62,4 +63,8 @@ GtkWidget *knob_new (const gchar *label, GtkAdjustment *adj);
 GtkWidget *knob_new_with_range(const gchar *label, double min, double max, double step, double page, double val);
 double knob_get_value(Knob*);
 void knob_set_value(Knob*,double);
+
+void knob_set_validator(Knob *self, long (*validator)(long,Knob*));
+void knob_set_divisions(Knob*self, long divisions);
+
 #endif
