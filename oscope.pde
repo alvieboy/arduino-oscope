@@ -32,13 +32,14 @@
 struct SerialWrapper
 {
 public:
-	static inline void write(uint8_t v){
+	static inline void write(uint8_t v) {
 		Serial.write(v);
 	}
-	static inline void write(const uint8_t *buf,int size){
+	static inline void write(const uint8_t *buf,int size) {
 		Serial.write(buf,size);
 	}
-        static void flush() {}
+	static void flush() {
+	}
 };
 
 // 4 functions
@@ -91,15 +92,15 @@ const int pwmPin = 9;
 
 static void stop_adc()
 {
-	ADCSRA = BIT(ADSC)|BIT(ADATE)|params.prescale; // Start conversion, enable autotrigger
+	ADCSRA = BIT(ADSC)|BIT(ADATE)|params.prescale; 
 }
 
 static void start_adc()
 {
 	if (params.prescale<=2) {
-		ADCSRA = BIT(ADEN)|BIT(ADSC)|BIT(ADATE)|params.prescale; // Start conversion, enable autotrigger
+		ADCSRA = BIT(ADEN)|BIT(ADSC)|BIT(ADATE)|params.prescale; // Do not enable interrupts here.
 	} else {
-		ADCSRA = BIT(ADIE)|BIT(ADEN)|BIT(ADSC)|BIT(ADATE)|params.prescale; // Start conversion, enable autotrigger
+		ADCSRA = BIT(ADIE)|BIT(ADEN)|BIT(ADSC)|BIT(ADATE)|params.prescale;
 	}
 }
 
