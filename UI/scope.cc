@@ -191,8 +191,8 @@ static void draw(GtkWidget *scope, cairo_t *cr)
 					lx=self->scope_xpos + i*self->zoom;
 					ly=self->scope_ypos + self->analog_height - ((double)self->dbuf[i]*(double)self->chancfg[start].gain)
 						- (double)self->chancfg[start].ypos;
-					if (ly>255)
-						ly=255;
+					if (ly>self->analog_height-1)
+						ly=self->analog_height-1;
 					if (ly<0)
 						ly=0;
 					cairo_line_to(cr,lx,ly);
@@ -210,7 +210,7 @@ static void draw(GtkWidget *scope, cairo_t *cr)
 	cairo_select_font_face (cr, "Helvetica",
 							CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
 
-	double tdiv = (double)self->numSamples*100.0 / self->freq;
+	double tdiv = (double)self->numSamples*1000.0/10.0 / self->freq;
 	sprintf(text,"tDiv: %.02fms", tdiv / (double)self->zoom);
 	cairo_font_extents(cr, &fe);
 	cairo_text_extents(cr, text, &te);
