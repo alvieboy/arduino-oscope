@@ -40,6 +40,9 @@ static void scope_display_init (ScopeDisplay *scope)
 	int i;
 	for (i=0;i<4;i++)
 		scope->chancfg[i].gain=1.0;
+	scope->scope_xpos = 0;
+	scope->scope_ypos = 0;
+    scope->numSamples = 962;
 }
 
 GtkWidget *scope_display_new (void)
@@ -49,6 +52,8 @@ GtkWidget *scope_display_new (void)
 
 static void draw_background(cairo_t *cr,const GtkAllocation *allocation)
 {
+	/* This ought to fill all available area */
+
 	cairo_set_source_rgb (cr, 0, 0, 0);
 
 	//	cairo_set_source_rgb (cr, 0, 0, 0);
@@ -60,23 +65,26 @@ static void draw_background(cairo_t *cr,const GtkAllocation *allocation)
 	cairo_fill(cr);
 }
 
-static void draw_grid(ScopeDisplay *scope, cairo_t *cr,const GtkAllocation *allocation)
+static void draw_grid(ScopeDisplay *scope, cairo_t *cr)
 {
 	cairo_set_source_rgb (cr, 0.4, 0.4, 0.4);
+	int nxstep = 10;
+	int nystep = 4;
 
-	double step_x = (double)allocation->width / 10.0;
-	double step_y = (double)scope->analog_height / 4.0;
+	double step_x = (double)scope->numSamples / (double)nxstep;
+	double step_y = (double)scope->analog_height / (double)nystep;
 	double x,y;
+	int xs,ys;
 
-	for (x=0; x<(double)allocation->width; x+=step_x) {
-		cairo_move_to(cr, (double)allocation->x + x, (double)allocation->y);
-		cairo_line_to(cr, (double)allocation->x + x, (double)(allocation->y+allocation->height));
+	for (x=0,xs=0; xs<=nxstep; x+=step_x,xs++) {
+		cairo_move_to(cr, (double)scope->scope_xpos + x, (double)scope->scope_ypos);
+		cairo_line_to(cr, (double)scope->scope_xpos + x, (double)scope->analog_height + (double)scope->scope_ypos);
 		cairo_stroke( cr );
 	}
 
-	for (y=0; y<(double)scope->analog_height; y+=step_y) {
-		cairo_move_to(cr, (double)allocation->x, (double)allocation->y + y);
-		cairo_line_to(cr, (double)allocation->x + (double)(allocation->x+allocation->width) , (double)allocation->y + y);
+	for (y=0,ys=0; ys<=nystep; y+=step_y,ys++) {
+		cairo_move_to(cr, (double)scope->scope_xpos, (double)scope->scope_ypos + y);
+		cairo_line_to(cr, (double)scope->scope_xpos + (double)scope->numSamples , (double)scope->scope_ypos + y);
 		cairo_stroke( cr );
 	}
 }
@@ -93,20 +101,27 @@ static void draw(GtkWidget *scope, cairo_t *cr)
 {
 	ScopeDisplay *self = SCOPE_DISPLAY(scope);
 	unsigned int i;
-	int lx=scope->allocation.x;
-	int ly=scope->allocation.y+scope->allocation.height;
 	cairo_text_extents_t te;
 	cairo_font_extents_t fe;
 	double vtextpos;
 	gchar text[24];
 
+	/* Compute positions */
+	self->scope_xpos = (scope->allocation.width - self->numSamples) / 2;
+	self->scope_ypos = (scope->allocation.height - self->analog_height) / 2;
+
 	draw_background(cr, &scope->allocation);
-	draw_grid(self, cr, &scope->allocation);
+	draw_grid(self, cr);
 
 	cairo_set_source_rgb (cr, 0, 0, 1.0);
 	cairo_fill_preserve (cr);
+
+	int lx=self->scope_xpos;
+	int ly=self->scope_ypos+self->analog_height;
+	/* Draw trigger level */
+
 	cairo_move_to(cr,lx,ly - self->tlevel);
-	cairo_line_to(cr,lx + scope->allocation.width,ly - self->tlevel);
+	cairo_line_to(cr,lx + self->numSamples,ly - self->tlevel);
 	/*	cairo_arc (cr, x, y, radius, 0, 2 * M_PI);
 	 */
 	cairo_stroke(cr);
@@ -138,16 +153,16 @@ static void draw(GtkWidget *scope, cairo_t *cr)
 
 		if (self->xy && self->channels == 2) {
 
-			lx=scope->allocation.x + scope->allocation.width / 2;
-			ly=scope->allocation.y + scope->allocation.height / 2;
+			lx=self->scope_xpos;
+			ly=self->scope_ypos;
 
 			for (i=0; i<self->numSamples; i+=2) {
 				cairo_move_to(cr,
 							  lx + ((int)self->dbuf[i])-127 ,
 							  ly + ((int)self->dbuf[i+1])-127
 							 );
-				lx=scope->allocation.x + i*self->zoom;
-				ly=scope->allocation.y+scope->allocation.height - self->dbuf[i];
+				lx+=i*self->zoom;
+				ly-=self->dbuf[i];
 				cairo_line_to(cr,lx,ly);
 			}
 			cairo_stroke (cr);
@@ -158,8 +173,8 @@ static void draw(GtkWidget *scope, cairo_t *cr)
 
 				cairo_set_source_rgb(cr, colors[start].r,colors[start].g,colors[start].b);
 
-				lx=scope->allocation.x+start;
-				ly=scope->allocation.y+scope->allocation.height;
+				lx=self->scope_xpos+start;
+				ly=self->scope_ypos + self->analog_height;
 
 				for (i=start; i<self->numSamples/self->zoom; i+=self->channels) {
 
@@ -173,8 +188,8 @@ static void draw(GtkWidget *scope, cairo_t *cr)
 					//fprintf(stderr,"Gain %f\n",self->chancfg[start].gain);
 
 					cairo_move_to(cr,lx,ly);
-					lx=scope->allocation.x + i*self->zoom;
-					ly=scope->allocation.y+scope->allocation.height - ((double)self->dbuf[i]*(double)self->chancfg[start].gain)
+					lx=self->scope_xpos + i*self->zoom;
+					ly=self->scope_ypos + self->analog_height - ((double)self->dbuf[i]*(double)self->chancfg[start].gain)
 						- (double)self->chancfg[start].ypos;
 					if (ly>255)
 						ly=255;

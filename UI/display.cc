@@ -77,7 +77,7 @@ void scope_got_parameters(unsigned char triggerLevel,
 						  unsigned char num_channels)
 {
 	numSamples=numS;
-	gtk_widget_set_size_request(image,numS,256);
+	gtk_widget_set_size_request(image,numS,256 + 80);
 	gtk_widget_set_size_request(digital_image,numS,128);
 	scope_display_set_samples(image,numS);
 	scope_display_set_channels(image,num_channels);
@@ -433,7 +433,7 @@ int main(int argc,char **argv)
 	gtk_box_pack_start(GTK_BOX(hbox),tog,TRUE,TRUE,0);
 	g_signal_connect(G_OBJECT(tog),"toggled",G_CALLBACK(&trigger_toggle_changed),NULL);
 
-	gtk_widget_set_size_request(image,512,256);
+	gtk_widget_set_size_request(image,962 + 60,256 + 60);
     gtk_widget_show_all(window);
 
 	serial_run( &mysetdata, &mydigsetdata );
