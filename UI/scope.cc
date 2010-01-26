@@ -29,14 +29,17 @@ static void scope_display_init (ScopeDisplay *scope)
 	scope->zoom=1;
 	scope->dbuf = NULL;
 	scope->xy = FALSE;
+
+	scope->analog_height = 255;
+
 #ifdef HAVE_DFT
 	scope->mode = MODE_NORMAL;
 	scope->dbuf_real = NULL;
 	scope->dbuf_output = NULL;
-	int i;
-    for (i=0;i<4;i++)
-		scope->chancfg[i].gain=1.0;
 #endif
+	int i;
+	for (i=0;i<4;i++)
+		scope->chancfg[i].gain=1.0;
 }
 
 GtkWidget *scope_display_new (void)
@@ -57,12 +60,12 @@ static void draw_background(cairo_t *cr,const GtkAllocation *allocation)
 	cairo_fill(cr);
 }
 
-static void draw_grid(cairo_t *cr,const GtkAllocation *allocation)
+static void draw_grid(ScopeDisplay *scope, cairo_t *cr,const GtkAllocation *allocation)
 {
 	cairo_set_source_rgb (cr, 0.4, 0.4, 0.4);
 
 	double step_x = (double)allocation->width / 10.0;
-	double step_y = (double)allocation->height / 4.0;
+	double step_y = (double)scope->analog_height / 4.0;
 	double x,y;
 
 	for (x=0; x<(double)allocation->width; x+=step_x) {
@@ -70,7 +73,8 @@ static void draw_grid(cairo_t *cr,const GtkAllocation *allocation)
 		cairo_line_to(cr, (double)allocation->x + x, (double)(allocation->y+allocation->height));
 		cairo_stroke( cr );
 	}
-	for (y=0; y<(double)allocation->height; y+=step_y) {
+
+	for (y=0; y<(double)scope->analog_height; y+=step_y) {
 		cairo_move_to(cr, (double)allocation->x, (double)allocation->y + y);
 		cairo_line_to(cr, (double)allocation->x + (double)(allocation->x+allocation->width) , (double)allocation->y + y);
 		cairo_stroke( cr );
@@ -97,7 +101,7 @@ static void draw(GtkWidget *scope, cairo_t *cr)
 	gchar text[24];
 
 	draw_background(cr, &scope->allocation);
-	draw_grid(cr, &scope->allocation);
+	draw_grid(self, cr, &scope->allocation);
 
 	cairo_set_source_rgb (cr, 0, 0, 1.0);
 	cairo_fill_preserve (cr);

@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <glib.h>
 #include <string.h>
+#include <sys/ioctl.h>
 #include "serial.h"
 #include "../protocol.h"
 #include "../SerPro.h"
@@ -250,8 +251,9 @@ int real_serial_init(char *device)
 {
 	struct termios termset;
 	GError *error = NULL;
+	int status;
 
-	fd = open(device, O_RDWR);
+	fd = open(device, O_RDWR|O_NOCTTY|O_NONBLOCK);
 	if (fd<0) {
 		perror("open");
 		return -1;
@@ -260,18 +262,26 @@ int real_serial_init(char *device)
 	fprintf(stderr,"Opened device '%s'\n", device);
 
 	tcgetattr(fd, &termset);
+	termset.c_iflag = IGNBRK;
 
-	termset.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP
-						 | INLCR | IGNCR | ICRNL | IXON);
 	termset.c_oflag &= ~OPOST;
 	termset.c_lflag &= ~(ECHO | ECHONL | ICANON | ISIG | IEXTEN);
 	termset.c_cflag &= ~(CSIZE | PARENB| HUPCL);
 	termset.c_cflag |= CS8;
+	termset.c_cc[VMIN]=1;
+	termset.c_cc[VTIME]=5;
 
 	cfsetospeed(&termset,B115200);
 	cfsetispeed(&termset,B115200);
 
 	tcsetattr(fd,TCSANOW,&termset);
+
+	ioctl(fd, TIOCMGET, &status); 
+
+	status |= ( TIOCM_DTR | TIOCM_RTS );
+
+	ioctl(fd, TIOCMSET, &status);
+
 
 	channel =  g_io_channel_unix_new(fd);
 

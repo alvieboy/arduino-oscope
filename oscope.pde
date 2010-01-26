@@ -27,7 +27,7 @@
 /* Baud rate, for communication with PC */
 #define BAUD_RATE 115200
 
-#define FASTISR
+#undef FASTISR
 
 struct SerialWrapper
 {
@@ -117,6 +117,8 @@ static void setup_adc()
 	start_adc();
 }
 
+#ifdef FASTISR
+
 static void start_sampling()
 {
 	cli();
@@ -140,8 +142,17 @@ static void start_sampling()
 		ADCSRA |= BIT(ADEN);
 		sei();
 	}
-
 }
+#else
+static void start_sampling()
+{
+	cli();
+	params.flags &= ~BYTE_FLAG_CONVERSIONDONE;
+	params.flags |= BYTE_FLAG_STARTCONVERSION;
+	ADCSRA |= BIT(ADEN);
+	sei();
+}
+#endif
 
 static void adc_set_frequency(unsigned char divider)
 {
@@ -412,6 +423,15 @@ ISR(ADC_vect,ISR_NAKED)
 #endif
 
 
+template<> void handleEvent<START_FRAME>()
+{
+	digitalWrite(ledPin,1);
+}
+
+template<> void handleEvent<END_FRAME>()
+{
+	digitalWrite(ledPin,0);
+}
 
 DECLARE_FUNCTION(COMMAND_PING)(const SerPro::RawBuffer &buf) {
 	SerPro::send<SerPro::RawBuffer>(COMMAND_PONG, buf);

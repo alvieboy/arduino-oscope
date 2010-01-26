@@ -47,6 +47,7 @@ struct _ScopeDisplay
 	fftw_plan plan;
 #endif
 	struct channelConfig chancfg[4];
+	unsigned analog_height;
 };
 
 struct _ScopeDisplayClass
