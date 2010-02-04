@@ -48,6 +48,7 @@ struct _ScopeDisplay
 #endif
 	struct channelConfig chancfg[4];
 	unsigned analog_height;
+	unsigned border;
 
 	/* Cached values. */
     int scope_xpos,scope_ypos;

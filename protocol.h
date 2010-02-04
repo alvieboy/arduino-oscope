@@ -23,11 +23,10 @@
 
 /* Our version */
 #define PROTOCOL_VERSION_HIGH 0x04
-#define PROTOCOL_VERSION_LOW  0x01
+#define PROTOCOL_VERSION_LOW  0x02
 
 /* Serial commands we support */
-#define COMMAND_PING           0x00
-#define COMMAND_GET_VERSION    0x01
+#define COMMAND_GET_VERSION    0x00
 #define COMMAND_START_SAMPLING 0x02
 #define COMMAND_SET_TRIGGER    0x03
 #define COMMAND_SET_HOLDOFF    0x04
@@ -45,7 +44,6 @@
 #define COMMAND_ERROR          0xFF
 
 #define FLAG_INVERT_TRIGGER  (1<<0)
-#define FLAG_DUAL_CHANNEL    (1<<1)
 
 typedef struct {
 	uint8_t triggerLevel;

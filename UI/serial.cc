@@ -158,14 +158,6 @@ DECLARE_FUNCTION(COMMAND_PARAMETERS_REPLY)(const parameters_t *p)
 }
 END_FUNCTION
 
-DECLARE_FUNCTION(COMMAND_PONG)(const SerPro::RawBuffer &b)
-{
-	printf("Got ping reply\n");
-	/* Request version */
-	SerPro::sendPacket(COMMAND_GET_VERSION);
-	state = GETVERSION;
-}
-END_FUNCTION
 
 DECLARE_FUNCTION(COMMAND_VERSION_REPLY)(uint8_t major,uint8_t minor) {
 	printf("Got version: OSCOPE %d.%d\n", major,minor);
@@ -196,8 +188,8 @@ END_FUNCTION
 
 template<>
 void handleEvent<LINK_UP>() {
-	fprintf(stderr,"Pinging device...\n");
-	SerPro::sendPacket<uint8_t,uint8_t,uint8_t,uint8_t>(COMMAND_PING,1,2,3,4);
+	SerPro::sendPacket(COMMAND_GET_VERSION);
+	state = GETVERSION;
 }
 
 

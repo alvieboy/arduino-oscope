@@ -24,6 +24,7 @@
 #include <string.h>
 #include <gtk/gtkmarshal.h>
 #include <gdk/gdkkeysyms.h>
+
 enum {
 	VALUE_CHANGED,
 	LAST_SIGNAL
@@ -388,6 +389,13 @@ static gboolean knob_focus_out_event(GtkWidget*knob,GdkEventFocus*event)
 	gtk_widget_queue_draw(knob);
 	return TRUE;
 }
+static void knob_size_request(GtkWidget *widget,GtkRequisition *requisition)
+{
+	Knob *self = KNOB(widget);
+	requisition->width = 60;
+	requisition->height = 60;
+}
+
 
 static void knob_class_init (KnobClass *cl)
 {
@@ -406,6 +414,7 @@ static void knob_class_init (KnobClass *cl)
 
 
 	widget_class->expose_event = knob_expose;
+    widget_class->size_request = knob_size_request;
 	widget_class->realize = knob_realize;
 	widget_class->scroll_event = knob_scroll_event;
 	widget_class->button_press_event = knob_button_press_event;

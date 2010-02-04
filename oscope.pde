@@ -61,13 +61,9 @@ DECLARE_SERPRO(SerProConfig,SerialWrapper,SerProHDLC,SerPro);
 /* Data buffer, where we store our samples. Allocated dinamically */
 static unsigned char *dataBuffer;
 
-/* Current buffer position, used to store data on buffer */
+/* Current buffer positions, used to store data on buffer */
 
-#ifndef FASTISR
-static unsigned short dataBufferPtr;
-#else
 unsigned char *storePtr,*endPtr;
-#endif
 
 /* Auto-trigger samples. If we don't trigger and we reach this number of
  samples without triggerting, then we trigger */
@@ -117,8 +113,6 @@ static void setup_adc()
 	start_adc();
 }
 
-#ifdef FASTISR
-
 static void start_sampling()
 {
 	cli();
@@ -132,27 +126,19 @@ static void start_sampling()
 			*storePtr++=ADCH;
 		} while (storePtr!=endPtr);
 		storePtr=dataBuffer;
-		
+
 		sei();
-		SerPro::send<SerPro::VariableBuffer>(COMMAND_BUFFER_SEG, SerPro::VariableBuffer(dataBuffer, params.numSamples) );
-	}
+
+		SerPro::send(COMMAND_BUFFER_SEG, VariableBuffer(dataBuffer, params.numSamples) );
+	}   
 	else {
 		params.flags &= ~BYTE_FLAG_CONVERSIONDONE;
 		params.flags |= BYTE_FLAG_STARTCONVERSION;
+		storePtr=dataBuffer;
 		ADCSRA |= BIT(ADEN);
 		sei();
 	}
 }
-#else
-static void start_sampling()
-{
-	cli();
-	params.flags &= ~BYTE_FLAG_CONVERSIONDONE;
-	params.flags |= BYTE_FLAG_STARTCONVERSION;
-	ADCSRA |= BIT(ADEN);
-	sei();
-}
-#endif
 
 static void adc_set_frequency(unsigned char divider)
 {
@@ -173,10 +159,8 @@ static void set_num_samples(unsigned short num)
 
 	params.numSamples  = num;
 	dataBuffer = (unsigned char*)malloc(params.numSamples);
-#ifdef FASTISR
 	storePtr = dataBuffer;
 	endPtr = dataBuffer+params.numSamples+1;
-#endif
 	sei();
 }
 
@@ -207,9 +191,7 @@ void setup()
 
 static void send_parameters()
 {
-	SerPro::send(COMMAND_PARAMETERS_REPLY,params);
-/*				 triggerLevel,holdoffSamples,adcref,
-				 prescale,numSamples,gflags,1);*/
+	SerPro::send(COMMAND_PARAMETERS_REPLY,&params);
 }
 
 
@@ -223,7 +205,7 @@ void loop() {
 		params.flags &= ~ BYTE_FLAG_CONVERSIONDONE;
 		sei();
 		stop_adc();
-		SerPro::send<SerPro::VariableBuffer>(COMMAND_BUFFER_SEG, SerPro::VariableBuffer(dataBuffer, params.numSamples) );
+		SerPro::send(COMMAND_BUFFER_SEG, VariableBuffer(dataBuffer, params.numSamples) );
 		start_adc();
 	} 
 }
@@ -276,28 +258,24 @@ ISR(ADC_vect)
 	if (flags & BYTE_FLAG_TRIGGERED) {
 		is_trigger:
 		register byte inadmux = ADMUX;
-		register uint16_t rbufptr = dataBufferPtr;
 
 		if (flags & BYTE_FLAG_STARTCONVERSION) {
-			if (dataBufferPtr==0) {
-				flags |= BYTE_FLAG_STOREDATA;
-				goto do_store;
-			}
+			flags |= BYTE_FLAG_STOREDATA;
+			goto do_store;
 		}
 
 		if (flags & BYTE_FLAG_STOREDATA) {
 		do_store:
 			// Switch channel.
-			if (flags & BYTE_FLAG_DUALCHANNEL)
+			/*if (flags & BYTE_FLAG_DUALCHANNEL)
 				inadmux ^=1 ;
 			else
 				inadmux &= 0xfe;
-
-			dataBuffer[rbufptr] = sampled;
+              */
+			*storePtr++ = sampled;
 		}
-		rbufptr++;
 
-		if (rbufptr>params.numSamples) {
+		if (storePtr == endPtr) {
 
 			/* End of this conversion. Perform holdoff if needed */
 			if (flags & BYTE_FLAG_STOREDATA) {
@@ -311,13 +289,10 @@ ISR(ADC_vect)
 			inadmux &= 0xfe;
 			holdoff=params.holdoffSamples;
 			autoTrigCount=0;
-			dataBufferPtr=0;
 			last=0;
 			if (!(flags&BYTE_FLAG_INVERTTRIGGER))
 				last--;
-		} else {
-			dataBufferPtr=rbufptr;
-		}
+		} 
 		ADMUX=inadmux;
 	} else {
 		last=sampled;
@@ -433,11 +408,6 @@ template<> void handleEvent<END_FRAME>()
 	digitalWrite(ledPin,0);
 }
 
-DECLARE_FUNCTION(COMMAND_PING)(const SerPro::RawBuffer &buf) {
-	SerPro::send<SerPro::RawBuffer>(COMMAND_PONG, buf);
-}
-END_FUNCTION
-
 DECLARE_FUNCTION(COMMAND_GET_VERSION)(void) {
 	SerPro::send<uint8_t,uint8_t>(COMMAND_VERSION_REPLY,PROTOCOL_VERSION_HIGH,PROTOCOL_VERSION_LOW);
 }
@@ -489,8 +459,8 @@ END_FUNCTION
 
 DECLARE_FUNCTION(COMMAND_SET_FLAGS)(uint8_t val) {
 	cli();
-	params.flags &= ~(BYTE_FLAG_INVERTTRIGGER|BYTE_FLAG_DUALCHANNEL);
-	val &= BYTE_FLAG_INVERTTRIGGER|BYTE_FLAG_DUALCHANNEL;
+	params.flags &= ~(BYTE_FLAG_INVERTTRIGGER);
+	val &= BYTE_FLAG_INVERTTRIGGER;
 	params.flags |= val;
 	sei();
 	send_parameters();

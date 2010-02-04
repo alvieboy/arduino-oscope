@@ -31,6 +31,7 @@ static void scope_display_init (ScopeDisplay *scope)
 	scope->xy = FALSE;
 
 	scope->analog_height = 255;
+	scope->border = 30;
 
 #ifdef HAVE_DFT
 	scope->mode = MODE_NORMAL;
@@ -128,7 +129,7 @@ static void draw(GtkWidget *scope, cairo_t *cr)
 
 
 	cairo_set_source_rgb( cr, 0, 255, 0);
-	cairo_set_line_width(cr,1.0);
+	//cairo_set_line_width(cr,1.0);
 
 #ifdef HAVE_DFT
 
@@ -344,7 +345,7 @@ static gboolean scope_display_expose(GtkWidget *scope, GdkEventExpose *event)
 	cairo_t *cr;
 	/* get a cairo_t */
 	cr = gdk_cairo_create (scope->window);
-
+    fprintf(stderr,"Expose %d %d\n",event->area.width, event->area.height);
 	cairo_rectangle (cr,
 					 event->area.x, event->area.y,
 					 event->area.width, event->area.height);
@@ -356,6 +357,12 @@ static gboolean scope_display_expose(GtkWidget *scope, GdkEventExpose *event)
 	return FALSE;
 }
 
+static void scope_size_request(GtkWidget *widget,GtkRequisition *requisition)
+{
+	ScopeDisplay *self = SCOPE_DISPLAY(widget);
+	requisition->width = self->numSamples + self->border*2;
+	requisition->height = self->analog_height + self->border*2;
+}
 
 
 static void scope_display_class_init (ScopeDisplayClass *cl)
@@ -365,6 +372,7 @@ static void scope_display_class_init (ScopeDisplayClass *cl)
 	widget_class = GTK_WIDGET_CLASS (cl);
 
 	widget_class->expose_event = scope_display_expose;
+    widget_class->size_request = scope_size_request;
 }
 
 struct channelConfig *scope_display_get_config_for_channel(GtkWidget *scope, int chan)

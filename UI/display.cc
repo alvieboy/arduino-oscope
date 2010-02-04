@@ -45,6 +45,7 @@ GtkWidget *combo_vref;
 GtkWidget *knob_channels;
 GtkWidget *shot_button;
 GtkWidget *freeze_button;
+GtkStyle *style;
 
 unsigned short numSamples;
 static gboolean frozen=FALSE;
@@ -274,21 +275,29 @@ GtkWidget *create_channel(const gchar *name, struct channelConfig *chanConfig)
 
 	GtkWidget *pos=knob_new_with_range("Y-POS",-255,255,1,10,0);
 	gtk_box_pack_start(GTK_BOX(hbox),pos,TRUE,TRUE,0);
-	gtk_widget_set_size_request(pos,60,60);
+//	gtk_widget_set_size_request(pos,60,60);
 	g_signal_connect(G_OBJECT(pos),"value-changed",G_CALLBACK(&channel_changed_ypos),chanConfig);
 
 	pos=knob_new_with_range("GAIN",0,200,5,25,100);
 	gtk_box_pack_start(GTK_BOX(hbox),pos,TRUE,TRUE,0);
-	gtk_widget_set_size_request(pos,60,60);
+//	gtk_widget_set_size_request(pos,60,60);
 	g_signal_connect(G_OBJECT(pos),"value-changed",G_CALLBACK(&channel_changed_gain),chanConfig);
 
 	gtk_container_add(GTK_CONTAINER(frame), hbox);
 	return frame;
 }
 
+void win_expose_callback(GtkWidget *w)
+{
+
+	//style = gtk_style_attach(style,w->window);
+}
+
+
 int main(int argc,char **argv)
 {
 	GtkWidget*scale_zoom;
+	
 
 	gtk_init(&argc,&argv);
 
@@ -300,9 +309,22 @@ int main(int argc,char **argv)
 
 	window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
 
+	style = gtk_widget_get_style(window);
 
 	g_signal_connect(G_OBJECT(window),"destroy",G_CALLBACK(win_destroy_callback),NULL);
+	//g_signal_connect(G_OBJECT(window),"expose-event",G_CALLBACK(win_expose_callback),NULL);
 
+	GdkColor color;
+
+	gdk_color_parse ("black", &color);
+
+	//gtk_widget_modify_bg (window, GTK_STATE_NORMAL, &color);
+
+	GtkRcStyle * rc = gtk_widget_get_modifier_style(window);
+	gtk_rc_parse_string("style \"oscope\" { bg[NORMAL]=\"black\" fg[NORMAL]=\"white\" }");
+	gtk_rc_parse_string("widget \"*\" style \"oscope\"\n");
+	gtk_widget_modify_style(window,rc);
+    
 	hbox = gtk_hbox_new(FALSE,0);
 
 
@@ -335,12 +357,12 @@ int main(int argc,char **argv)
 
 	knob_trigger=knob_new_with_range("TRIGGER",0,255,1,10,0);
 	gtk_box_pack_start(GTK_BOX(hbox),knob_trigger,TRUE,TRUE,0);
-    gtk_widget_set_size_request(knob_trigger,60,60);
+//    gtk_widget_set_size_request(knob_trigger,60,60);
 	g_signal_connect(G_OBJECT(knob_trigger),"value-changed",G_CALLBACK(&trigger_level_changed),NULL);
 
 	knob_holdoff= knob_new_with_range("HOLD",0,255,1,10,0);
 	gtk_box_pack_start(GTK_BOX(hbox),knob_holdoff,TRUE,TRUE,0);
-	gtk_widget_set_size_request(knob_holdoff,60,60);
+//	gtk_widget_set_size_request(knob_holdoff,60,60);
 	g_signal_connect(G_OBJECT(knob_holdoff),"value-changed",G_CALLBACK(&holdoff_level_changed),NULL);
 
 	gtk_container_add(GTK_CONTAINER(frame), hbox);
@@ -407,7 +429,7 @@ int main(int argc,char **argv)
 	knob_channels = knob_new_with_range("CHANS",1,4,1,1,1);
 	knob_set_divisions( KNOB(knob_channels), 4 );
 	gtk_box_pack_start(GTK_BOX(hbox),knob_channels,TRUE,TRUE,0);
-	gtk_widget_set_size_request(knob_channels,60,60);
+	//gtk_widget_set_size_request(knob_channels,60,60);
 
 	/*
 	 gtk_combo_box_append_text(GTK_COMBO_BOX(combo_channels),"1");
@@ -433,8 +455,7 @@ int main(int argc,char **argv)
 	gtk_box_pack_start(GTK_BOX(hbox),tog,TRUE,TRUE,0);
 	g_signal_connect(G_OBJECT(tog),"toggled",G_CALLBACK(&trigger_toggle_changed),NULL);
 
-	gtk_widget_set_size_request(image,962 + 60,256 + 60);
-    gtk_widget_show_all(window);
+	gtk_widget_show_all(window);
 
 	serial_run( &mysetdata, &mydigsetdata );
 

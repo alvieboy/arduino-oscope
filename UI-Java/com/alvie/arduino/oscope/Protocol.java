@@ -40,25 +40,23 @@ public class Protocol implements SerialPortEventListener
     int command;
     boolean enableTriggerDone;
 
-    final int  COMMAND_PING             = 0x3E;
-    final int  COMMAND_GET_VERSION      = 0x40;
-    final int  COMMAND_START_SAMPLING   = 0x41;
-    final int  COMMAND_SET_TRIGGER      = 0x42;
-    final int  COMMAND_SET_HOLDOFF      = 0x43;
-    final int  COMMAND_SET_VREF         = 0x45;
-    final int  COMMAND_SET_PRESCALER    = 0x46;
-    final int  COMMAND_GET_PARAMETERS   = 0x47;
-    final int  COMMAND_SET_SAMPLES      = 0x48;
-    final int  COMMAND_SET_AUTOTRIG     = 0x49;
-    final int  COMMAND_SET_FLAGS        = 0x50;
-    final int  COMMAND_VERSION_REPLY    = 0x80;
-    final int  COMMAND_BUFFER_SEG       = 0x81;
-    final int  COMMAND_PARAMETERS_REPLY = 0x87;
-    final int  COMMAND_PONG             = 0xE3;
+    final int  COMMAND_GET_VERSION      = 0x00;
+    final int  COMMAND_START_SAMPLING   = 0x02;
+    final int  COMMAND_SET_TRIGGER      = 0x03;
+    final int  COMMAND_SET_HOLDOFF      = 0x04;
+    final int  COMMAND_SET_VREF         = 0x05;
+    final int  COMMAND_SET_PRESCALER    = 0x06;
+    final int  COMMAND_GET_PARAMETERS   = 0x07;
+    final int  COMMAND_SET_SAMPLES      = 0x08;
+    final int  COMMAND_SET_AUTOTRIG     = 0x09;
+    final int  COMMAND_SET_FLAGS        = 0x0A;
+    final int  COMMAND_SET_CHANNELS     = 0x0B;
+    final int  COMMAND_VERSION_REPLY    = 0x00;
+    final int  COMMAND_BUFFER_SEG       = 0x01;
+    final int  COMMAND_PARAMETERS_REPLY = 0x02;
     final int  COMMAND_ERROR            = 0xFF;
 
     public static int FLAG_INVERT_TRIGGER  = (1<<0);
-    public static int FLAG_DUAL_CHANNEL    = (1<<1);
 
     public interface ScopeDisplayer
     {
