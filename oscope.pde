@@ -26,6 +26,7 @@
 
 /* Baud rate, for communication with PC */
 #define BAUD_RATE 115200
+static const uint32_t freq = 16000000;
 
 #undef FASTISR
 
@@ -277,7 +278,6 @@ ISR(ADC_vect)
 
 		if (storePtr == endPtr) {
 
-			/* End of this conversion. Perform holdoff if needed */
 			if (flags & BYTE_FLAG_STOREDATA) {
 				flags |= BYTE_FLAG_CONVERSIONDONE;
 				flags &= ~BYTE_FLAG_STARTCONVERSION;
@@ -454,6 +454,11 @@ END_FUNCTION
 
 DECLARE_FUNCTION(COMMAND_GET_PARAMETERS)(void) {
 	send_parameters();
+}
+END_FUNCTION
+
+DECLARE_FUNCTION(COMMAND_GET_FREQUENCY)(void) {
+	SerPro::send(freq);
 }
 END_FUNCTION
 

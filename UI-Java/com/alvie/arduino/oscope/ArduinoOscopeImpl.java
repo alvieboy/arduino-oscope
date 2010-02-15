@@ -73,7 +73,7 @@ public class ArduinoOscopeImpl implements Protocol.ScopeDisplayer, ChangeListene
                               int adcref, int prescale, int numSamples,
                               int flags)
     {
-        boolean isDual = (flags & Protocol.FLAG_DUAL_CHANNEL) != 0;
+        boolean isDual = false;//(flags & Protocol.FLAG_DUAL_CHANNEL) != 0;
         boolean isInvertTrigger = (flags & Protocol.FLAG_INVERT_TRIGGER) != 0;
 
         triggerSlider.setValue(triggerLevel);

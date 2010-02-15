@@ -27,6 +27,7 @@
 
 /* Serial commands we support */
 #define COMMAND_GET_VERSION    0x00
+#define COMMAND_GET_FREQUENCY  0x01
 #define COMMAND_START_SAMPLING 0x02
 #define COMMAND_SET_TRIGGER    0x03
 #define COMMAND_SET_HOLDOFF    0x04
@@ -40,7 +41,7 @@
 #define COMMAND_VERSION_REPLY  0x00
 #define COMMAND_BUFFER_SEG     0x01
 #define COMMAND_PARAMETERS_REPLY 0x02
-#define COMMAND_PONG           0x03
+#define COMMAND_FREQUENCY_REPLY 0x03
 #define COMMAND_ERROR          0xFF
 
 #define FLAG_INVERT_TRIGGER  (1<<0)

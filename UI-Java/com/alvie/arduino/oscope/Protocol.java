@@ -124,7 +124,7 @@ public class Protocol implements SerialPortEventListener
             ns += buf[5];
 
             isTriggerInvert = (buf[6] & FLAG_INVERT_TRIGGER) !=0;
-            isDualChannel = (buf[6] & FLAG_DUAL_CHANNEL) !=0 ;
+            isDualChannel = false;//(buf[6] & FLAG_DUAL_CHANNEL) !=0 ;
 
             if (null!=displayer)
             {
@@ -136,15 +136,15 @@ public class Protocol implements SerialPortEventListener
         switch(state) {
 
         case PING:
-            if (command==COMMAND_PONG) {
+/*            if (command==COMMAND_PONG) {
                 pingtimer.cancel();
                 System.out.println("Got ping reply");
-                /* Request version */
+ 
                 sendPacket(COMMAND_GET_VERSION);
                 state = MyState.GETVERSION;
             } else {
                 System.out.println("Invalid packet " + command + " in state " + state + ", expecting " + COMMAND_PONG);
-            }
+            }     */
             break;
 
         case GETVERSION:
@@ -246,8 +246,8 @@ public class Protocol implements SerialPortEventListener
     void setFlags()
     {
         int c=0;
-        if (isDualChannel)
-            c|=FLAG_DUAL_CHANNEL;
+/*        if (isDualChannel)
+            c|=FLAG_DUAL_CHANNEL;*/
         if (isTriggerInvert)
             c|=FLAG_INVERT_TRIGGER;
         sendPacket(COMMAND_SET_FLAGS,c);
@@ -451,7 +451,7 @@ public class Protocol implements SerialPortEventListener
         pingtimer = new Timer();
         pingtimer.schedule(new PingTimeoutTask(), 2000);
 
-        sendPacket(COMMAND_PING, buf, 4);
+        //sendPacket(COMMAND_PING, buf, 4);
     }
 
     void changeSerialPort(String name) throws SerialPortOpenException

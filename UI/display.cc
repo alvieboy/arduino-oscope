@@ -293,6 +293,14 @@ void win_expose_callback(GtkWidget *w)
 	//style = gtk_style_attach(style,w->window);
 }
 
+void channel_changed(GtkWidget *w, void *data)
+{
+	int i = (int)data;
+	if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(w))) {
+		fprintf(stderr,"I: %d\n",i);
+	}
+}
+
 
 int main(int argc,char **argv)
 {
@@ -320,11 +328,12 @@ int main(int argc,char **argv)
 
 	//gtk_widget_modify_bg (window, GTK_STATE_NORMAL, &color);
 
+    /*
 	GtkRcStyle * rc = gtk_widget_get_modifier_style(window);
 	gtk_rc_parse_string("style \"oscope\" { bg[NORMAL]=\"black\" fg[NORMAL]=\"white\" }");
 	gtk_rc_parse_string("widget \"*\" style \"oscope\"\n");
 	gtk_widget_modify_style(window,rc);
-    
+    */
 	hbox = gtk_hbox_new(FALSE,0);
 
 
@@ -335,6 +344,29 @@ int main(int argc,char **argv)
 	scale_zoom=gtk_vscale_new_with_range(1,64,1);
 	gtk_box_pack_start(GTK_BOX(hbox),scale_zoom,TRUE,TRUE,0);
 	g_signal_connect(G_OBJECT(scale_zoom),"value-changed",G_CALLBACK(&zoom_changed),NULL);
+
+	GtkWidget *chan1 = gtk_radio_button_new_with_label(NULL,"1");
+	GtkWidget *chan2 = gtk_radio_button_new_with_label_from_widget(GTK_RADIO_BUTTON(chan1),"2");
+	GtkWidget *chan3 = gtk_radio_button_new_with_label_from_widget(GTK_RADIO_BUTTON(chan1),"3");
+	GtkWidget *chan4 = gtk_radio_button_new_with_label_from_widget(GTK_RADIO_BUTTON(chan1),"4");
+
+	hbox = gtk_hbox_new(FALSE,0);
+
+	gtk_box_pack_start(GTK_BOX(hbox),gtk_label_new("Channels:"),FALSE,FALSE,0);
+	gtk_box_pack_start(GTK_BOX(hbox),chan1,FALSE,FALSE,0);
+	gtk_box_pack_start(GTK_BOX(hbox),chan2,FALSE,FALSE,0);
+	gtk_box_pack_start(GTK_BOX(hbox),chan3,FALSE,FALSE,0);
+	gtk_box_pack_start(GTK_BOX(hbox),chan4,FALSE,FALSE,0);
+
+	gtk_box_pack_start(GTK_BOX(hbox),gtk_label_new(""),TRUE,TRUE,0);
+
+	g_signal_connect(G_OBJECT(chan1),"toggled",G_CALLBACK(&channel_changed),(void*)1);
+	g_signal_connect(G_OBJECT(chan2),"toggled",G_CALLBACK(&channel_changed),(void*)2);
+	g_signal_connect(G_OBJECT(chan3),"toggled",G_CALLBACK(&channel_changed),(void*)3);
+	g_signal_connect(G_OBJECT(chan4),"toggled",G_CALLBACK(&channel_changed),(void*)4);
+
+
+	gtk_box_pack_start(GTK_BOX(vbox),hbox,FALSE,FALSE,0);
 
 	image = scope_display_new();
 
@@ -367,7 +399,7 @@ int main(int argc,char **argv)
 
 	gtk_container_add(GTK_CONTAINER(frame), hbox);
 
-
+    /*
 	hbox = gtk_hbox_new(FALSE,4);
 
 	gtk_box_pack_start(GTK_BOX(hbox),create_channel("Channel A",scope_display_get_config_for_channel(image,0)),TRUE,TRUE,0);
@@ -375,7 +407,7 @@ int main(int argc,char **argv)
 	gtk_box_pack_start(GTK_BOX(hbox),create_channel("Channel C",scope_display_get_config_for_channel(image,2)),TRUE,TRUE,0);
 	gtk_box_pack_start(GTK_BOX(hbox),create_channel("Channel D",scope_display_get_config_for_channel(image,3)),TRUE,TRUE,0);
 	gtk_box_pack_start(GTK_BOX(vbox),hbox,TRUE,TRUE,0);
-
+    */
 
 /*	hbox = gtk_hbox_new(FALSE,4);
 	gtk_box_pack_start(GTK_BOX(vbox),hbox,TRUE,TRUE,0);
