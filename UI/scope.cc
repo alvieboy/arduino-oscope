@@ -288,10 +288,14 @@ void scope_display_set_data(GtkWidget *scope, unsigned char *data, size_t size)
 	unsigned long sum=0;
 	double dc;
 #endif
+	/* First value has number of channels */
+	self->channels = d[0] + 1;
+
+	fprintf(stderr,"Data: channels %u, %u %u total size %u\n",self->channels, d[1],d[2],size);
 
 	unsigned int i;
-	for (i=0; i<size && i<self->numSamples; i++) {
-		self->dbuf[i] = *d;
+	for (i=1; i<size && i<self->numSamples; i++) {
+		self->dbuf[i-1] = *d;
 #ifdef HAVE_DFT
 		sum+=*d;
 #endif
@@ -301,8 +305,8 @@ void scope_display_set_data(GtkWidget *scope, unsigned char *data, size_t size)
 	d = data;
 	dc = (double)sum / (double)self->numSamples;
 
-	for (i=0; i<size && i<self->numSamples; i++) {
-		self->dbuf_real[i] = ((double)*d ) - dc;
+	for (i=1; i<size && i<self->numSamples; i++) {
+		self->dbuf_real[i-1] = ((double)*d ) - dc;
 		d++;
 	}
 	fftw_execute(self->plan);

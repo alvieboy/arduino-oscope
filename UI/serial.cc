@@ -170,7 +170,7 @@ END_FUNCTION
 DECLARE_FUNCTION(COMMAND_BUFFER_SEG)(const SerPro::RawBuffer &b)
 {
 	fprintf(stderr,"Got analog data, %d samples\n",b.size);
-	sdata(b.buffer, b.size);
+	sdata(b.buffer+1, b.size-1);
 	if ( oneshot_cb && ! delay_request) {
 		in_request=FALSE;
 		oneshot_cb(oneshot_cb_data);
@@ -213,6 +213,7 @@ gboolean serial_data_ready(GIOChannel *source,
 
 	g_io_channel_read_chars(source,&c,1,&r,&error);
 	if (NULL==error && r==1)  {
+		//printf("< %02x\n",(unsigned int)c);
 		SerPro::processData((unsigned char)c);
 	}
 	return TRUE;

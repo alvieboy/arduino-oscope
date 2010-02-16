@@ -64,12 +64,18 @@ static unsigned char *dataBuffer;
 
 /* Current buffer positions, used to store data on buffer */
 
-unsigned char *storePtr,*endPtr;
+static unsigned char *storePtr,*endPtr;
 
 /* Auto-trigger samples. If we don't trigger and we reach this number of
  samples without triggerting, then we trigger */
 static unsigned char autoTrigSamples;
 static unsigned char autoTrigCount;
+
+static unsigned char currentChannel=0;
+
+/* To be copied from params when we can change channel numbers */
+
+static unsigned char maxChannels=0;
 
 static parameters_t params;
 
@@ -130,7 +136,7 @@ static void start_sampling()
 
 		sei();
 
-		SerPro::send(COMMAND_BUFFER_SEG, VariableBuffer(dataBuffer, params.numSamples) );
+		SerPro::send(COMMAND_BUFFER_SEG, maxChannels, VariableBuffer(dataBuffer, params.numSamples) );
 	}   
 	else {
 		params.flags &= ~BYTE_FLAG_CONVERSIONDONE;
@@ -174,7 +180,9 @@ void setup()
 	autoTrigSamples = 255;
 	autoTrigCount = 0;
 	params.holdoffSamples = 0;
-	params.channels = 1;
+	params.channels = 0;
+	maxChannels = 0;
+	currentChannel=0;
 
 	Serial.begin(BAUD_RATE);
 	pinMode(ledPin,OUTPUT);
@@ -206,7 +214,11 @@ void loop() {
 		params.flags &= ~ BYTE_FLAG_CONVERSIONDONE;
 		sei();
 		stop_adc();
-		SerPro::send(COMMAND_BUFFER_SEG, VariableBuffer(dataBuffer, params.numSamples) );
+		SerPro::send(COMMAND_BUFFER_SEG, maxChannels, VariableBuffer(dataBuffer, params.numSamples) );
+		cli();
+		maxChannels = params.channels;
+		currentChannel=0;
+		sei();
 		start_adc();
 	} 
 }
@@ -271,8 +283,16 @@ ISR(ADC_vect)
 			/*if (flags & BYTE_FLAG_DUALCHANNEL)
 				inadmux ^=1 ;
 			else
-				inadmux &= 0xfe;
-              */
+				
+				*/
+			if (currentChannel<maxChannels)
+				currentChannel++;
+			else
+				currentChannel=0;
+
+			inadmux &= 0xf8;
+			inadmux |= currentChannel;
+
 			*storePtr++ = sampled;
 		}
 
@@ -285,14 +305,15 @@ ISR(ADC_vect)
 
 			flags &= ~BYTE_FLAG_STOREDATA;
 			flags &= ~BYTE_FLAG_TRIGGERED;
-            // Reset muxer
-			inadmux &= 0xfe;
+			// Reset muxer
+			inadmux &= 0xf8;
 			holdoff=params.holdoffSamples;
 			autoTrigCount=0;
+			currentChannel=0;
 			last=0;
 			if (!(flags&BYTE_FLAG_INVERTTRIGGER))
 				last--;
-		} 
+		}
 		ADMUX=inadmux;
 	} else {
 		last=sampled;
@@ -449,6 +470,11 @@ END_FUNCTION
 DECLARE_FUNCTION(COMMAND_SET_SAMPLES)(uint16_t val) {
 	set_num_samples(val);
 	send_parameters();
+}
+END_FUNCTION
+
+DECLARE_FUNCTION(COMMAND_SET_CHANNELS)(uint8_t val) {
+	params.channels = val - 1;
 }
 END_FUNCTION
 

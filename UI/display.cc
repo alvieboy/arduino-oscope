@@ -42,7 +42,7 @@ GtkWidget *knob_holdoff;
 GtkWidget *combo_prescaler;
 GtkWidget *combo_vref;
 //GtkWidget *combo_channels;
-GtkWidget *knob_channels;
+//GtkWidget *knob_channels;
 GtkWidget *shot_button;
 GtkWidget *freeze_button;
 GtkStyle *style;
@@ -98,7 +98,7 @@ void scope_got_parameters(unsigned char triggerLevel,
 
 	gtk_combo_box_set_active(GTK_COMBO_BOX(combo_prescaler),7-prescale);
 	//gtk_combo_box_set_active(GTK_COMBO_BOX(combo_channels),num_channels-1);
-	knob_set_value( KNOB(knob_channels), num_channels );
+	// knob_set_value( KNOB(knob_channels), num_channels );
 }
 
 
@@ -297,7 +297,8 @@ void channel_changed(GtkWidget *w, void *data)
 {
 	int i = (int)data;
 	if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(w))) {
-		fprintf(stderr,"I: %d\n",i);
+		//fprintf(stderr,"I: %d\n",i);
+		serial_set_channels(i);
 	}
 }
 
@@ -458,9 +459,13 @@ int main(int argc,char **argv)
 	g_signal_connect(G_OBJECT(combo_channels),"changed",G_CALLBACK(&channels_changed),NULL);
     */
 	//gtk_box_pack_start(GTK_BOX(hbox),gtk_label_new("Channels:"),TRUE,TRUE,0);
-	knob_channels = knob_new_with_range("CHANS",1,4,1,1,1);
-	knob_set_divisions( KNOB(knob_channels), 4 );
-	gtk_box_pack_start(GTK_BOX(hbox),knob_channels,TRUE,TRUE,0);
+
+	/*
+	 knob_channels = knob_new_with_range("CHANS",1,4,1,1,1);
+	 knob_set_divisions( KNOB(knob_channels), 4 );
+	 gtk_box_pack_start(GTK_BOX(hbox),knob_channels,TRUE,TRUE,0);
+	 */
+
 	//gtk_widget_set_size_request(knob_channels,60,60);
 
 	/*
@@ -470,7 +475,7 @@ int main(int argc,char **argv)
 	gtk_combo_box_append_text(GTK_COMBO_BOX(combo_channels),"4");
 	*/
 
-	g_signal_connect(G_OBJECT(knob_channels),"changed",G_CALLBACK(&channels_changed),NULL);
+	//g_signal_connect(G_OBJECT(knob_channels),"changed",G_CALLBACK(&channels_changed),NULL);
 
 	hbox = gtk_hbox_new(FALSE,4);
 	gtk_box_pack_start(GTK_BOX(vbox),hbox,TRUE,TRUE,0);
