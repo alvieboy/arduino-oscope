@@ -39,7 +39,10 @@ struct _Knob
 
 	long (*validator)(long value,struct _Knob *);
 	unsigned divisions;
+	GSList *divtitles;
+	GSList *divtitles_extents;
 };
+
 
 struct _KnobClass
 {
@@ -66,5 +69,7 @@ void knob_set_value(Knob*,double);
 
 void knob_set_validator(Knob *self, long (*validator)(long,Knob*));
 void knob_set_divisions(Knob*self, long divisions);
+long knob_set_divisions(Knob*self);
+GSList *knob_change_division_labels(Knob*self,GSList*list);
 
 #endif

@@ -40,6 +40,8 @@ static void knob_init (Knob *knob)
 	knob->rest_angle = G_PI_4;
 	knob->validator = NULL;
 	knob->divisions = 13;
+	knob->divtitles = NULL;
+	knob->divtitles_extents = NULL;
 }
 
 GtkWidget *knob_new_with_range(const gchar *label, double min, double max, double step,double page, double def)
@@ -152,13 +154,36 @@ static void draw(GtkWidget *knob, cairo_t *cr)
 	double i;         
 	unsigned int z;
 	double delta = (G_PI*2.0 - 2.0*self->rest_angle)/(double)(self->divisions-1);
+
+    /* labels */
+	cairo_select_font_face (cr, "Sans", CAIRO_FONT_SLANT_NORMAL,
+							CAIRO_FONT_WEIGHT_BOLD);
+	cairo_set_font_size (cr, 8.0);
+	/* end labels */
+
 	for (z=0, i=self->rest_angle + G_PI_2;
 		 z<self->divisions;
 		 i+=/*self->rest_angle/2.0*/delta,z++) {
 
+		cairo_set_source_rgb( cr, 0,0,0);
+
 		cairo_move_to(cr, w/2.0 + 14.0*cos(i), h/2.0+14.0*sin(i));
 		cairo_line_to(cr, w/2.0 + 18.0*cos(i), h/2.0+18.0*sin(i));
+
 		cairo_stroke(cr);
+#if 0
+		cairo_text_extents_t extents;
+
+		cairo_set_source_rgb( cr, 0.2,0.2,0.2);
+
+		cairo_text_extents(cr,"5ms",&extents);
+
+#define DTEXTLEN 25.0
+		cairo_move_to(cr, w/2.0 + DTEXTLEN*cos(i) - extents.width/2.0,
+					  h/2.0+DTEXTLEN*sin(i) + extents.height/2.0);
+
+		cairo_show_text (cr, "5ms");
+#endif
 	}
 
 

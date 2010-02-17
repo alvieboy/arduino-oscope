@@ -28,7 +28,7 @@
 #include "../protocol.h"
 #include "../SerPro.h"
 #include "../SerProHDLC.h"
-//#include <sigc++/sigc++.h>
+// #include <sigc++/sigc++.h> // LATER
 
 static int fd = -1;
 
