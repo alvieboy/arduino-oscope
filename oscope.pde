@@ -29,7 +29,8 @@
 /* Baud rate, for communication with PC */
 #define BAUD_RATE 115200
 static const uint32_t freq = 16000000;
-
+static const uint16_t avcc = 5000; // 5v
+static const uint16_t vref = 5000; // 5v
 #undef FASTISR
 
 struct SerialWrapper
@@ -192,9 +193,9 @@ void setup()
 	setup_adc();
 
 	/* Simple test for PWM output */
-	TCCR0B = TCCR0B & 0b11111000 | 0x01; // 62.5KHz
-	TCCR1B = TCCR1B & 0b11111000 | 0x01; // 62.5KHz
-	TCCR2B = TCCR2B & 0b11111000 | 0x01; // 62.5KHz
+	TCCR0B = TCCR0B & 0b11111000 | 0x02; // 62.5KHz
+	TCCR1B = TCCR1B & 0b11111000 | 0x02; // 62.5KHz
+	TCCR2B = TCCR2B & 0b11111000 | 0x02; // 62.5KHz
 	analogWrite(pwmPin,127);
 
 	set_num_samples(962);
@@ -491,8 +492,8 @@ DECLARE_FUNCTION(COMMAND_GET_PARAMETERS)(void) {
 }
 END_FUNCTION
 
-DECLARE_FUNCTION(COMMAND_GET_FREQUENCY)(void) {
-	SerPro::send(freq);
+DECLARE_FUNCTION(COMMAND_GET_CONSTANTS)(void) {
+	SerPro::send(freq, avcc, vref);
 }
 END_FUNCTION
 

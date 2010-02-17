@@ -28,6 +28,7 @@
 #include "../protocol.h"
 #include "../SerPro.h"
 #include "../SerProHDLC.h"
+//#include <sigc++/sigc++.h>
 
 static int fd = -1;
 
@@ -102,16 +103,24 @@ extern void scope_got_parameters(unsigned char triggerLevel,
 								 unsigned char flags,
 								 unsigned char numChannels);
 
+extern void scope_got_constants(uint32_t freq,uint16_t avcc,uint16_t vref);
+
 
 enum mystate {
 	PING,
 	GETVERSION,
 	GETPARAMETERS,
+	GETCONSTANTS,
 	SAMPLING
 };
 
 static enum mystate state = PING;
 
+DECLARE_FUNCTION(COMMAND_CONSTANTS_REPLY)(uint32_t freq, uint16_t avcc, uint16_t vref)
+{
+	scope_got_constants(freq,avcc,vref);
+}
+END_FUNCTION
 
 DECLARE_FUNCTION(COMMAND_PARAMETERS_REPLY)(const parameters_t *p)
 {

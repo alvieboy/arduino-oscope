@@ -69,6 +69,11 @@ void mydigsetdata(unsigned char *data,size_t size)
 	//digital_scope_display_set_data(digital_image,data,size);
 }
 
+void scope_got_constants(uint32_t freq,uint16_t avcc,uint16_t vref)
+{
+
+}
+
 void scope_got_parameters(unsigned char triggerLevel,
 						  unsigned char holdoffSamples,
 						  unsigned char adcref,
@@ -400,7 +405,7 @@ int main(int argc,char **argv)
 
 	gtk_container_add(GTK_CONTAINER(frame), hbox);
 
-    /*
+
 	hbox = gtk_hbox_new(FALSE,4);
 
 	gtk_box_pack_start(GTK_BOX(hbox),create_channel("Channel A",scope_display_get_config_for_channel(image,0)),TRUE,TRUE,0);
@@ -408,7 +413,7 @@ int main(int argc,char **argv)
 	gtk_box_pack_start(GTK_BOX(hbox),create_channel("Channel C",scope_display_get_config_for_channel(image,2)),TRUE,TRUE,0);
 	gtk_box_pack_start(GTK_BOX(hbox),create_channel("Channel D",scope_display_get_config_for_channel(image,3)),TRUE,TRUE,0);
 	gtk_box_pack_start(GTK_BOX(vbox),hbox,TRUE,TRUE,0);
-    */
+
 
 /*	hbox = gtk_hbox_new(FALSE,4);
 	gtk_box_pack_start(GTK_BOX(vbox),hbox,TRUE,TRUE,0);

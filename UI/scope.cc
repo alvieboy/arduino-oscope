@@ -171,7 +171,7 @@ static void draw(GtkWidget *scope, cairo_t *cr)
 		} else {
 			unsigned int start;
 			for (start=0; start<self->channels; start++) {
-
+				gboolean firstsample = true;
 				cairo_set_source_rgb(cr, colors[start].r,colors[start].g,colors[start].b);
 
 				lx=self->scope_xpos + start;
@@ -179,16 +179,8 @@ static void draw(GtkWidget *scope, cairo_t *cr)
 
 				for (i=start; i<self->numSamples/self->zoom; i+=self->channels) {
 
-					// HACK - REMOVE
-					/*
-					 if ((i+2)&4) {
-						cairo_set_source_rgb(cr,1,0,0);
-					} else
-                        cairo_set_source_rgb(cr,0,1,0);
-                      */
-					//fprintf(stderr,"Gain %f\n",self->chancfg[start].gain);
-
 					cairo_move_to(cr,lx,ly);
+
 					lx=self->scope_xpos + i*self->zoom;
 					ly=self->scope_ypos + self->analog_height - ((double)self->dbuf[i]*(double)self->chancfg[start].gain)
 						- (double)self->chancfg[start].ypos;
@@ -199,11 +191,16 @@ static void draw(GtkWidget *scope, cairo_t *cr)
 					if (ly<self->scope_ypos)
 						ly=self->scope_ypos;
 
-					cairo_line_to(cr,lx,ly);
-					cairo_stroke (cr);
+					if (!firstsample) {
+						cairo_line_to(cr,lx,ly);
+					} else {
+						firstsample=false;
+					}
 				}
+				cairo_stroke (cr);
 
 			}
+			
 		}
 	}
 
