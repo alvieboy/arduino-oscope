@@ -24,6 +24,8 @@
 #include "SerPro.h"
 #include "SerProHDLC.h"
 
+#undef TEST_CHANNELS
+
 /* Baud rate, for communication with PC */
 #define BAUD_RATE 115200
 static const uint32_t freq = 16000000;
@@ -228,12 +230,17 @@ void loop() {
 uint8_t last = 0;
 uint8_t holdoff;
 
+#ifdef TEST_CHANNELS
+uint8_t admux_dly;
+#endif
+
 #ifndef FASTISR
 
 ISR(ADC_vect)
 {
 	register byte flags = params.flags;
 	register byte sampled = ADCH;
+	register byte inadmux = ADMUX;
 
 	if (flags&BYTE_FLAG_TRIGGERED)
 		goto is_trigger; /* Fast path */
@@ -247,17 +254,17 @@ ISR(ADC_vect)
 
 		if (autoTrigCount>0 && autoTrigCount >= autoTrigSamples ) {
 			flags |= BYTE_FLAG_TRIGGERED;
-			goto is_trigger;
+			goto do_switch_channel;
 		} else {
 			if (flags&BYTE_FLAG_INVERTTRIGGER) {
 				if (sampled>=params.triggerLevel && last<params.triggerLevel) {
 					flags|= BYTE_FLAG_TRIGGERED;
-					goto is_trigger;
+					goto do_switch_channel;
 				}
 			} else {
 				if (sampled<=params.triggerLevel && last>params.triggerLevel) {
 					flags|= BYTE_FLAG_TRIGGERED;
-					goto is_trigger;
+					goto do_switch_channel;
 				}
 			}
 			if (autoTrigSamples>0)
@@ -265,12 +272,11 @@ ISR(ADC_vect)
 		}
 	} else {
 		flags |= BYTE_FLAG_TRIGGERED;
-		goto is_trigger;
+		goto do_switch_channel;
 	}
 
 	if (flags & BYTE_FLAG_TRIGGERED) {
 		is_trigger:
-		register byte inadmux = ADMUX;
 
 		if (flags & BYTE_FLAG_STARTCONVERSION) {
 			flags |= BYTE_FLAG_STOREDATA;
@@ -279,21 +285,23 @@ ISR(ADC_vect)
 
 		if (flags & BYTE_FLAG_STOREDATA) {
 		do_store:
+#ifdef TEST_CHANNELS
+			*storePtr++ = 10+((admux_dly&0x7)<<4);
+            //*storePtr++ = currentChannel<<6;
+#else
+			*storePtr++ = sampled;
+#endif
 			// Switch channel.
-			/*if (flags & BYTE_FLAG_DUALCHANNEL)
-				inadmux ^=1 ;
-			else
-				
-				*/
+		do_switch_channel:
 			if (currentChannel<maxChannels)
 				currentChannel++;
 			else
 				currentChannel=0;
-
+#ifdef TEST_CHANNELS
+			admux_dly = inadmux;
+#endif
 			inadmux &= 0xf8;
 			inadmux |= currentChannel;
-
-			*storePtr++ = sampled;
 		}
 
 		if (storePtr == endPtr) {

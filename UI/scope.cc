@@ -174,7 +174,7 @@ static void draw(GtkWidget *scope, cairo_t *cr)
 
 				cairo_set_source_rgb(cr, colors[start].r,colors[start].g,colors[start].b);
 
-				lx=self->scope_xpos+start;
+				lx=self->scope_xpos + start;
 				ly=self->scope_ypos + self->analog_height;
 
 				for (i=start; i<self->numSamples/self->zoom; i+=self->channels) {
@@ -192,10 +192,13 @@ static void draw(GtkWidget *scope, cairo_t *cr)
 					lx=self->scope_xpos + i*self->zoom;
 					ly=self->scope_ypos + self->analog_height - ((double)self->dbuf[i]*(double)self->chancfg[start].gain)
 						- (double)self->chancfg[start].ypos;
-					if (ly>self->analog_height-1)
-						ly=self->analog_height-1;
-					if (ly<0)
-						ly=0;
+
+					if (ly>(self->scope_ypos+self->analog_height-1))
+						ly=self->scope_ypos+self->analog_height-1;
+
+					if (ly<self->scope_ypos)
+						ly=self->scope_ypos;
+
 					cairo_line_to(cr,lx,ly);
 					cairo_stroke (cr);
 				}
@@ -294,6 +297,8 @@ void scope_display_set_data(GtkWidget *scope, unsigned char *data, size_t size)
 	fprintf(stderr,"Data: channels %u, %u %u total size %u\n",self->channels, d[1],d[2],size);
 
 	unsigned int i;
+	d++;
+
 	for (i=1; i<size && i<self->numSamples; i++) {
 		self->dbuf[i-1] = *d;
 #ifdef HAVE_DFT

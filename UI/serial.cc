@@ -102,17 +102,6 @@ extern void scope_got_parameters(unsigned char triggerLevel,
 								 unsigned char flags,
 								 unsigned char numChannels);
 
-void sendchar(int i) {
-	char t = i &0xff;
-	gsize written;
-	GError *error = NULL;
-	fprintf(stderr,"Send %d\n",i);
-	g_io_channel_write_chars(channel,&t,sizeof(t),&written,&error);
-	if (NULL!=error) {
-		fprintf(stderr,"Cannot write ?!?!?!? %s\n", error->message);
-		return;
-	}
-}
 
 enum mystate {
 	PING,
@@ -190,6 +179,18 @@ template<>
 void handleEvent<LINK_UP>() {
 	SerPro::sendPacket(COMMAND_GET_VERSION);
 	state = GETVERSION;
+}
+
+
+template<>
+void Dumper<1>(const unsigned char *buffer,size_t size)
+{
+	size_t i;
+	fprintf(stderr,"< [%d]",size);
+	for (i=0;i<size;i++) {
+		fprintf(stderr," %u",(int)buffer[i]);
+	}
+	fprintf(stderr,"\n");
 }
 
 
