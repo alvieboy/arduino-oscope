@@ -109,8 +109,8 @@ extern void scope_got_constants(uint32_t freq,uint16_t avcc,uint16_t vref);
 enum mystate {
 	PING,
 	GETVERSION,
-	GETPARAMETERS,
 	GETCONSTANTS,
+	GETPARAMETERS,
 	SAMPLING
 };
 
@@ -119,7 +119,10 @@ static enum mystate state = PING;
 DECLARE_FUNCTION(COMMAND_CONSTANTS_REPLY)(uint32_t freq, uint16_t avcc, uint16_t vref)
 {
 	scope_got_constants(freq,avcc,vref);
+	state=GETPARAMETERS;
+	SerPro::sendPacket(COMMAND_GET_PARAMETERS);
 }
+
 END_FUNCTION
 
 DECLARE_FUNCTION(COMMAND_PARAMETERS_REPLY)(const parameters_t *p)
@@ -159,8 +162,8 @@ END_FUNCTION
 
 DECLARE_FUNCTION(COMMAND_VERSION_REPLY)(uint8_t major,uint8_t minor) {
 	printf("Got version: OSCOPE %d.%d\n", major,minor);
-	SerPro::sendPacket(COMMAND_GET_PARAMETERS);
-	state=GETPARAMETERS;
+	SerPro::sendPacket(COMMAND_GET_CONSTANTS);
+	state=GETCONSTANTS;
 }
 END_FUNCTION
 
