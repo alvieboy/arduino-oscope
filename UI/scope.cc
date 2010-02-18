@@ -155,7 +155,7 @@ static void draw(GtkWidget *scope, cairo_t *cr)
 		if (self->xy && self->channels == 2) {
 
 			lx=self->scope_xpos;
-			ly=self->scope_ypos;
+			ly=self->scope_ypos + self->analog_height;
 
 			for (i=0; i<self->numSamples; i+=2) {
 				cairo_move_to(cr,
@@ -291,13 +291,13 @@ void scope_display_set_data(GtkWidget *scope, unsigned char *data, size_t size)
 	/* First value has number of channels */
 	self->channels = d[0] + 1;
 
-	fprintf(stderr,"Data: channels %u, %u %u total size %u\n",self->channels, d[1],d[2],size);
+	fprintf(stderr,"Data: channels %u, flags 0x%02x, total size %u\n",self->channels, d[1],size);
 
 	unsigned int i;
 	d++;
 
-	for (i=1; i<size && i<self->numSamples; i++) {
-		self->dbuf[i-1] = *d;
+	for (i=2; i<size && i<self->numSamples; i++) {
+		self->dbuf[i-2] = *d;
 #ifdef HAVE_DFT
 		sum+=*d;
 #endif

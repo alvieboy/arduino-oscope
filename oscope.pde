@@ -80,6 +80,8 @@ static unsigned char currentChannel=0;
 
 static unsigned char maxChannels=0;
 
+static uint8_t capturedFrameFlags;
+
 static parameters_t params;
 
 #define BYTE_FLAG_TRIGGERED       (1<<7) /* Signal is triggered */
@@ -129,6 +131,7 @@ static void start_sampling()
 	if (params.prescale<=2) {
 		/* Fast sampling loop */
 		storePtr=dataBuffer;
+		capturedFrameFlags=0;
 		ADCSRA = BIT(ADEN)|BIT(ADSC)|BIT(ADATE)|params.prescale; // Start conversion, enable autotrigger
 		do {
 			while (!ADCSRA&BIT(ADIF));
@@ -139,7 +142,9 @@ static void start_sampling()
 
 		sei();
 
-		SerPro::send(COMMAND_BUFFER_SEG, maxChannels, VariableBuffer(dataBuffer, params.numSamples) );
+		SerPro::send(COMMAND_BUFFER_SEG, maxChannels,
+					 capturedFrameFlags,
+					 VariableBuffer(dataBuffer, params.numSamples) );
 	}   
 	else {
 		params.flags &= ~BYTE_FLAG_CONVERSIONDONE;
@@ -193,11 +198,14 @@ void setup()
 	setup_adc();
 
 	/* Simple test for PWM output */
-	TCCR0B = TCCR0B & 0b11111000 | 0x02; // 62.5KHz
-	TCCR1B = TCCR1B & 0b11111000 | 0x02; // 62.5KHz
-	TCCR2B = TCCR2B & 0b11111000 | 0x02; // 62.5KHz
+	TCCR0B = TCCR0B & 0b11111000 | 0x04; // 62.5KHz
+	TCCR1B = TCCR1B & 0b11111000 | 0x05; // 62.5KHz
+	TCCR2B = TCCR2B & 0b11111000 | 0x06; // 62.5KHz
 	analogWrite(pwmPin,127);
-
+	pinMode(8,OUTPUT);
+	analogWrite(8,100);
+	pinMode(7,OUTPUT);
+	analogWrite(7,60);
 	set_num_samples(962);
 }
 
@@ -217,10 +225,13 @@ void loop() {
 		params.flags &= ~ BYTE_FLAG_CONVERSIONDONE;
 		sei();
 		stop_adc();
-		SerPro::send(COMMAND_BUFFER_SEG, maxChannels, VariableBuffer(dataBuffer, params.numSamples) );
+		SerPro::send(COMMAND_BUFFER_SEG, maxChannels,
+					 capturedFrameFlags,
+					 VariableBuffer(dataBuffer, params.numSamples) );
 		cli();
 		maxChannels = params.channels;
 		currentChannel=0;
+		capturedFrameFlags=0;
 		sei();
 		start_adc();
 	} 
@@ -255,9 +266,10 @@ ISR(ADC_vect)
 
 		if (autoTrigCount>0 && autoTrigCount >= autoTrigSamples ) {
 			flags |= BYTE_FLAG_TRIGGERED;
+			capturedFrameFlags|=CAPTURED_FRAME_FLAG_AUTOTRIGGERED;
 			goto do_switch_channel;
 		} else {
-			if (flags&BYTE_FLAG_INVERTTRIGGER) {
+			if (!(flags&BYTE_FLAG_INVERTTRIGGER)) {
 				if (sampled>=params.triggerLevel && last<params.triggerLevel) {
 					flags|= BYTE_FLAG_TRIGGERED;
 					goto do_switch_channel;

@@ -46,6 +46,9 @@
 
 #define FLAG_INVERT_TRIGGER  (1<<0)
 
+/* Captured frame flags */
+#define CAPTURED_FRAME_FLAG_AUTOTRIGGERED (1<<0)
+
 typedef struct {
 	uint8_t triggerLevel;
 	uint8_t holdoffSamples;
