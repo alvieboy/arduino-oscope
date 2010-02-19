@@ -226,7 +226,14 @@ void loop() {
 		params.flags &= ~ BYTE_FLAG_CONVERSIONDONE;
 		sei();
 		stop_adc();
-		SerPro::send(COMMAND_BUFFER_SEG, (uint8_t)0,//params.flags & FLAG_CHANNEL_SEQUENTIAL ? 1 : maxChannels,
+
+		uint8_t ch = maxChannels;
+
+		if (params.flags & FLAG_CHANNEL_SEQUENTIAL) {
+            ch |= currentChannel<<2;
+		}
+
+		SerPro::send(COMMAND_BUFFER_SEG, ch,
 					 capturedFrameFlags,
 					 VariableBuffer(dataBuffer, params.numSamples) );
 		cli();
@@ -341,6 +348,9 @@ ISR(ADC_vect)
 			inadmux &= 0xf8;
 			holdoff=params.holdoffSamples;
 			autoTrigCount=0;
+			if (flags & FLAG_CHANNEL_SEQUENTIAL) {
+                capturedFrameFlags |= CAPTURED_FRAME_FLAG_SEQUENTIAL_CHANNEL;
+			}
 			//currentChannel=0;
 			last=0;
 			if (!(flags&BYTE_FLAG_INVERTTRIGGER))

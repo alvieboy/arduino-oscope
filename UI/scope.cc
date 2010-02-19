@@ -21,17 +21,23 @@
 #include <math.h>
 #include <string.h>
 #include "channel.h"
+#include "../protocol.h"
 
 G_DEFINE_TYPE (ScopeDisplay, scope_display, GTK_TYPE_DRAWING_AREA);
 
 static void scope_display_init (ScopeDisplay *scope)
 {
 	scope->zoom=1;
-	scope->dbuf = NULL;
+	scope->dbuf[0] = NULL;
+	scope->dbuf[1] = NULL;
+	scope->dbuf[2] = NULL;
+	scope->dbuf[3] = NULL;
+
 	scope->xy = FALSE;
 
 	scope->analog_height = 255;
 	scope->border = 30;
+	scope->flags = 0;
 
 #ifdef HAVE_DFT
 	scope->mode = MODE_NORMAL;
@@ -150,7 +156,7 @@ static void draw(GtkWidget *scope, cairo_t *cr)
 	}
 
 #else
-	if (NULL!=self->dbuf) {
+	if (NULL!=self->dbuf[0]) {
 
 		if (self->xy && self->channels == 2) {
 
@@ -163,44 +169,84 @@ static void draw(GtkWidget *scope, cairo_t *cr)
 							  ly + ((int)self->dbuf[i+1])-127
 							 );
 				lx+=i*self->zoom;
-				ly-=self->dbuf[i];
+				ly-=self->dbuf[0][i];
 				cairo_line_to(cr,lx,ly);
 			}
 			cairo_stroke (cr);
 
 		} else {
-			unsigned int start;
-			for (start=0; start<self->channels; start++) {
-				gboolean firstsample = true;
-				cairo_set_source_rgb(cr, colors[start].r,colors[start].g,colors[start].b);
+			if (self->flags&CAPTURED_FRAME_FLAG_SEQUENTIAL_CHANNEL) {
 
-				lx=self->scope_xpos + start;
-				ly=self->scope_ypos + self->analog_height;
+				unsigned int start;
 
-				for (i=start; i<self->numSamples/self->zoom; i+=self->channels) {
+				for (start=0; start<self->channels; start++) {
+					gboolean firstsample = true;
 
-					cairo_move_to(cr,lx,ly);
+					cairo_set_source_rgb(cr, colors[start].r,colors[start].g,colors[start].b);
 
-					lx=self->scope_xpos + i*self->zoom;
-					ly=self->scope_ypos + self->analog_height - ((double)self->dbuf[i]*(double)self->chancfg[start].gain)
-						- (double)self->chancfg[start].ypos;
+					lx=self->scope_xpos + start;
+					ly=self->scope_ypos + self->analog_height;
 
-					if (ly>(self->scope_ypos+self->analog_height-1))
-						ly=self->scope_ypos+self->analog_height-1;
+					for (i=0; i<self->numSamples/self->zoom; i++) {
 
-					if (ly<self->scope_ypos)
-						ly=self->scope_ypos;
+						cairo_move_to(cr,lx,ly);
 
-					if (!firstsample) {
-						cairo_line_to(cr,lx,ly);
-					} else {
-						firstsample=false;
+						lx=self->scope_xpos + i*self->zoom;
+						ly=self->scope_ypos + self->analog_height - ((double)self->dbuf[start][i]*(double)self->chancfg[start].gain)
+							- (double)self->chancfg[start].ypos;
+
+						if (ly>(self->scope_ypos+self->analog_height-1))
+							ly=self->scope_ypos+self->analog_height-1;
+
+						if (ly<self->scope_ypos)
+							ly=self->scope_ypos;
+
+						if (!firstsample) {
+							cairo_line_to(cr,lx,ly);
+						} else {
+							firstsample=false;
+						}
 					}
-				}
-				cairo_stroke (cr);
+					cairo_stroke (cr);
 
+				}
+
+
+
+			} else {
+				unsigned int start;
+				for (start=0; start<self->channels; start++) {
+					gboolean firstsample = true;
+					cairo_set_source_rgb(cr, colors[start].r,colors[start].g,colors[start].b);
+
+					lx=self->scope_xpos + start;
+					ly=self->scope_ypos + self->analog_height;
+
+					for (i=start; i<self->numSamples/self->zoom; i+=self->channels) {
+
+						cairo_move_to(cr,lx,ly);
+
+						lx=self->scope_xpos + i*self->zoom;
+						ly=self->scope_ypos + self->analog_height - ((double)self->dbuf[0][i]*(double)self->chancfg[start].gain)
+							- (double)self->chancfg[start].ypos;
+
+						if (ly>(self->scope_ypos+self->analog_height-1))
+							ly=self->scope_ypos+self->analog_height-1;
+
+						if (ly<self->scope_ypos)
+							ly=self->scope_ypos;
+
+						if (!firstsample) {
+							cairo_line_to(cr,lx,ly);
+						} else {
+							firstsample=false;
+						}
+					}
+					cairo_stroke (cr);
+
+				}
 			}
-			
+
 		}
 	}
 
@@ -255,9 +301,12 @@ void scope_display_set_sample_freq(GtkWidget *scope, double freq)
 void scope_display_set_samples(GtkWidget *scope, unsigned short numSamples)
 {
 	ScopeDisplay *self = SCOPE_DISPLAY(scope);
-	if (self->dbuf)
-		g_free(self->dbuf);
-	self->dbuf = (unsigned char*)g_malloc(numSamples);
+	int i;
+	for (i=0;i<4;i++) {
+		if (self->dbuf[i])
+			g_free(self->dbuf[i]);
+		self->dbuf[i] = (unsigned char*)g_malloc(numSamples);
+	}
 	self->numSamples = numSamples;
 #ifdef HAVE_DFT
 	if(self->dbuf_real)
@@ -284,20 +333,28 @@ void scope_display_set_data(GtkWidget *scope, unsigned char *data, size_t size)
 {
 	ScopeDisplay *self = SCOPE_DISPLAY(scope);
 	unsigned char *d = data;
+	int storeChannel = 0;
+	unsigned char flags;
+
 #ifdef HAVE_DFT
 	unsigned long sum=0;
 	double dc;
 #endif
 	/* First value has number of channels */
-	self->channels = d[0] + 1;
+	self->channels = (d[0] & 0x3) + 1;
+	flags = d[1];
 
-	fprintf(stderr,"Data: channels %u, flags 0x%02x, total size %u\n",self->channels, d[1],size);
+	if (flags&CAPTURED_FRAME_FLAG_SEQUENTIAL_CHANNEL) {
+		// Sequential
+		storeChannel = (d[0]>>2) & 0x03;
+	}
 
+	fprintf(stderr,"Data: channels %u(%u), flags 0x%02x, total size %u\n", self->channels, storeChannel,flags, size);
 	unsigned int i;
 	d++;
 
 	for (i=2; i<size && i<self->numSamples; i++) {
-		self->dbuf[i-2] = *d;
+		self->dbuf[storeChannel][i-2] = *d;
 #ifdef HAVE_DFT
 		sum+=*d;
 #endif
@@ -313,7 +370,11 @@ void scope_display_set_data(GtkWidget *scope, unsigned char *data, size_t size)
 	}
 	fftw_execute(self->plan);
 #endif
-	gtk_widget_queue_draw(scope);
+	self->flags = flags;
+
+	if (!(flags&CAPTURED_FRAME_FLAG_SEQUENTIAL_CHANNEL) || storeChannel==self->channels-1) {
+		gtk_widget_queue_draw(scope);
+	}
 }
 
 void scope_display_set_trigger_level(GtkWidget *scope, unsigned char level)

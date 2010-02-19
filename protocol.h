@@ -49,6 +49,7 @@
 
 /* Captured frame flags */
 #define CAPTURED_FRAME_FLAG_AUTOTRIGGERED (1<<0)
+#define CAPTURED_FRAME_FLAG_SEQUENTIAL_CHANNEL (1<<1)
 
 typedef struct {
 	uint8_t triggerLevel;

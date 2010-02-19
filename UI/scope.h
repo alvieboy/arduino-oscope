@@ -33,7 +33,7 @@ struct _ScopeDisplay
 {
 	GtkDrawingArea parent;
 	/* private */
-	unsigned char *dbuf;
+	unsigned char *dbuf[4];
 	unsigned short numSamples;
 	unsigned char tlevel;
 	unsigned int zoom;
@@ -49,6 +49,7 @@ struct _ScopeDisplay
 	struct channelConfig chancfg[4];
 	unsigned analog_height;
 	unsigned border;
+	int flags;
 
 	/* Cached values. */
     int scope_xpos,scope_ypos;
