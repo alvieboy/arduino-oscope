@@ -185,6 +185,7 @@ void setup()
 	params.adcref = 0x0; // Default
 	dataBuffer=NULL;
 	params.triggerLevel=0;
+	params.flags = FLAG_CHANNEL_SEQUENTIAL;
 	autoTrigSamples = 255;
 	autoTrigCount = 0;
 	params.holdoffSamples = 0;
@@ -225,12 +226,19 @@ void loop() {
 		params.flags &= ~ BYTE_FLAG_CONVERSIONDONE;
 		sei();
 		stop_adc();
-		SerPro::send(COMMAND_BUFFER_SEG, maxChannels,
+		SerPro::send(COMMAND_BUFFER_SEG, (uint8_t)0,//params.flags & FLAG_CHANNEL_SEQUENTIAL ? 1 : maxChannels,
 					 capturedFrameFlags,
 					 VariableBuffer(dataBuffer, params.numSamples) );
 		cli();
 		maxChannels = params.channels;
-		currentChannel=0;
+		if (params.flags & FLAG_CHANNEL_SEQUENTIAL) {
+			if (currentChannel<maxChannels)
+				currentChannel++;
+			else
+				currentChannel=0;
+		} else {
+			currentChannel=0;
+		}
 		capturedFrameFlags=0;
 		sei();
 		start_adc();
@@ -306,16 +314,19 @@ ISR(ADC_vect)
 #endif
 			// Switch channel.
 		do_switch_channel:
-			if (currentChannel<maxChannels)
-				currentChannel++;
-			else
-				currentChannel=0;
+			if (flags & FLAG_CHANNEL_SEQUENTIAL) {
+			} else {
+				if (currentChannel<maxChannels)
+					currentChannel++;
+				else
+					currentChannel=0;
+			}
 #ifdef TEST_CHANNELS
-			admux_dly = inadmux;
+				admux_dly = inadmux;
 #endif
-			inadmux &= 0xf8;
-			inadmux |= currentChannel;
-		}
+				inadmux &= 0xf8;
+				inadmux |= currentChannel;
+			}
 
 		if (storePtr == endPtr) {
 
@@ -330,7 +341,7 @@ ISR(ADC_vect)
 			inadmux &= 0xf8;
 			holdoff=params.holdoffSamples;
 			autoTrigCount=0;
-			currentChannel=0;
+			//currentChannel=0;
 			last=0;
 			if (!(flags&BYTE_FLAG_INVERTTRIGGER))
 				last--;
