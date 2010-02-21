@@ -331,11 +331,11 @@ ISR(ADC_vect)
 					currentChannel=0;
 			}
 #ifdef TEST_CHANNELS
-				admux_dly = inadmux;
+			admux_dly = inadmux;
 #endif
-				inadmux &= 0xf8;
-				inadmux |= currentChannel;
-			}
+			inadmux &= 0xf8;
+			inadmux |= currentChannel;
+		}
 
 		if (storePtr == endPtr) {
 

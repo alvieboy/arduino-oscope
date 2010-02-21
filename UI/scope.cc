@@ -187,6 +187,15 @@ static void draw(GtkWidget *scope, cairo_t *cr)
 					lx=self->scope_xpos + start;
 					ly=self->scope_ypos + self->analog_height;
 
+					/* HACK - 1st sample of 2,3 and 4 channels is always wrong, because it
+					 belongs to trigger channel (1)*/
+					if (start>0) {
+						fprintf(stderr,"Fixing 1st sample of %u to %u\n",
+								self->dbuf[start][0] , self->dbuf[start][1]);
+
+						self->dbuf[start][0] = self->dbuf[start][1];
+					}
+
 					for (i=0; i<self->numSamples/self->zoom; i++) {
 
 						cairo_move_to(cr,lx,ly);
@@ -351,7 +360,7 @@ void scope_display_set_data(GtkWidget *scope, unsigned char *data, size_t size)
 
 	fprintf(stderr,"Data: channels %u(%u), flags 0x%02x, total size %u\n", self->channels, storeChannel,flags, size);
 	unsigned int i;
-	d++;
+	d+=2; // Skip flags and channel info
 
 	for (i=2; i<size && i<self->numSamples; i++) {
 		self->dbuf[storeChannel][i-2] = *d;
