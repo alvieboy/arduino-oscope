@@ -38,6 +38,7 @@ static gboolean in_request;
 static gboolean freeze = FALSE;
 static gboolean delay_request = FALSE;
 static gboolean is_trigger_invert;
+static gboolean is_seq_channel;
 
 static void (*sdata)(unsigned char *data,size_t size);
 static void (*sdigdata)(unsigned char *data,size_t size);
@@ -128,6 +129,7 @@ END_FUNCTION
 DECLARE_FUNCTION(COMMAND_PARAMETERS_REPLY)(const parameters_t *p)
 {
 	is_trigger_invert = p->flags & FLAG_INVERT_TRIGGER;
+	is_seq_channel = p->flags & FLAG_CHANNEL_SEQUENTIAL;
 
 	unsigned char *r = (unsigned char*)p;
 	unsigned i;
@@ -333,12 +335,20 @@ void serial_set_vref(unsigned char vref)
 static void set_flags()
 {
 	unsigned char c=0;
+
 	if (is_trigger_invert)
 		c|=FLAG_INVERT_TRIGGER;
+	if (is_seq_channel)
+		c|=FLAG_CHANNEL_SEQUENTIAL;
+
 	SerPro::sendPacket<uint8_t>(COMMAND_SET_FLAGS,c);
 }
 
-
+void serial_set_sequential_channel(gboolean isseq)
+{
+	is_seq_channel = isseq;
+	set_flags();
+}
 void serial_set_trigger_invert(gboolean active)
 {
 	is_trigger_invert = active;

@@ -307,6 +307,12 @@ void channel_changed(GtkWidget *w, void *data)
 	}
 }
 
+void channel_seq_changed(GtkWidget *w, void *data)
+{
+	gboolean isseq = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(w));
+	serial_set_sequential_channel(isseq);
+}
+
 
 int main(int argc,char **argv)
 {
@@ -364,12 +370,17 @@ int main(int argc,char **argv)
 	gtk_box_pack_start(GTK_BOX(hbox),chan3,FALSE,FALSE,0);
 	gtk_box_pack_start(GTK_BOX(hbox),chan4,FALSE,FALSE,0);
 
+	GtkWidget *sequential_check = gtk_check_button_new_with_label("Seq");
+
+	gtk_box_pack_start(GTK_BOX(hbox),sequential_check,FALSE,FALSE,0);
 	gtk_box_pack_start(GTK_BOX(hbox),gtk_label_new(""),TRUE,TRUE,0);
 
 	g_signal_connect(G_OBJECT(chan1),"toggled",G_CALLBACK(&channel_changed),(void*)1);
 	g_signal_connect(G_OBJECT(chan2),"toggled",G_CALLBACK(&channel_changed),(void*)2);
 	g_signal_connect(G_OBJECT(chan3),"toggled",G_CALLBACK(&channel_changed),(void*)3);
 	g_signal_connect(G_OBJECT(chan4),"toggled",G_CALLBACK(&channel_changed),(void*)4);
+
+	g_signal_connect(G_OBJECT(sequential_check),"toggled",G_CALLBACK(&channel_seq_changed),NULL);
 
 
 	gtk_box_pack_start(GTK_BOX(vbox),hbox,FALSE,FALSE,0);
