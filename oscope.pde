@@ -263,8 +263,6 @@ uint8_t holdoff;
 uint8_t admux_dly;
 #endif
 
-#ifndef FASTISR
-
 ISR(ADC_vect)
 {
 	register byte flags = params.flags;
@@ -364,103 +362,6 @@ ISR(ADC_vect)
 	}
 	params.flags=flags;
 }
-
-#else // FASTISR
-
-#if 1
-ISR(ADC_vect)
-{
-	register byte flags = params.flags;
-	register byte sampled = ADCH;
-
-	if (flags & BYTE_FLAG_STARTCONVERSION) {
-		flags |= BYTE_FLAG_STOREDATA;
-		flags &= ~BYTE_FLAG_STARTCONVERSION;
-		goto do_store;
-	}
-
-	if (flags & BYTE_FLAG_STOREDATA) {
-	do_store:
-		*storePtr++ = sampled;
-
-
-		if (storePtr == endPtr) {
-
-			flags |= BYTE_FLAG_CONVERSIONDONE;
-			flags &= ~BYTE_FLAG_STOREDATA;
-
-			storePtr = dataBuffer;
-		}
-	}
-
-	params.flags=flags;
-}
-#else
-ISR(ADC_vect,ISR_NAKED)
-{
-	push __zero_reg__
-	push r0
-	in r0,__SREG__
-	push r0
-	clr __zero_reg__
-	push r18
-	push r19
-	push r20
-	push r24
-	push r25
-	push r30
-	push r31
-	lds r20,_ZL6params+6
-	lds r25,121
-	sbrs r20,6
-	ori r20,lo8(16)
-	andi r20,lo8(-65)
-
-.STOREDATA:
-	lds r30,storePtr
-	lds r31,(storePtr)+1
-	st Z+,r25
-	sts (storePtr)+1,r31
-	sts storePtr,r30
-	lds r24,endPtr
-	lds r25,(endPtr)+1
-	cp r30,r24
-	cpc r31,r25
-	breq .ENDCONVERSION
-
-.EXITISR:
-	sts _ZL6params+6,r20
-/* epilogue start */
-	pop r31
-	pop r30
-	pop r25
-	pop r24
-	pop r20
-	pop r19
-	pop r18
-	pop r0
-	out __SREG__,r0
-	pop r0
-	pop __zero_reg__
-	reti
-.L4:
-	sbrs r20,4
-	rjmp .EXITISR
-	rjmp .STOREDATA
-
-.ENDCONVERSION:
-
-	ori r20,lo8(32)
-	andi r20,lo8(-17)
-	lds r24,_ZL10dataBuffer
-	lds r25,(_ZL10dataBuffer)+1
-	sts (storePtr)+1,r25
-	sts storePtr,r24
-	rjmp .EXITISR
-
-}
-#endif
-#endif
 
 
 template<> void handleEvent<START_FRAME>()
