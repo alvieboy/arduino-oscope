@@ -138,8 +138,16 @@ DECLARE_FUNCTION(COMMAND_PARAMETERS_REPLY)(const parameters_t *p)
 	}
 	printf("\n");
 
-	printf("Num samples: %d\n", p->numSamples);
-	printf("Channels: %d \n",p->channels);
+	fprintf(stderr,"Num samples: %d\n", p->numSamples);
+	fprintf(stderr,"Channels: %d \n",p->channels);
+	fprintf(stderr,"Flags:");
+	if(is_trigger_invert)
+		fprintf(stderr," INVERTTRIGGER");
+
+	if(is_seq_channel)
+		fprintf(stderr," CHANNELSEQUENTIAL");
+	fprintf(stderr,"\n");
+
 
 	scope_got_parameters(p->triggerLevel,
 						 p->holdoffSamples,

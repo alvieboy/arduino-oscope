@@ -89,9 +89,6 @@ static parameters_t params;
 #define BYTE_FLAG_CONVERSIONDONE  (1<<5) /* Conversion done flag */
 #define BYTE_FLAG_STOREDATA       (1<<4) /* Internal flag - store data in buffer */
 
-#define BYTE_FLAG_DUALCHANNEL     FLAG_DUAL_CHANNEL /* Dual-channel enabled */
-#define BYTE_FLAG_INVERTTRIGGER   FLAG_INVERT_TRIGGER /* Trigger is inverted (negative edge) */
-
 #define BIT(x) (1<<x)
 
 const int ledPin = 13;
@@ -202,6 +199,10 @@ void setup()
 	TCCR0B = TCCR0B & 0b11111000 | 0x04; // 62.5KHz
 	TCCR1B = TCCR1B & 0b11111000 | 0x05; // 62.5KHz
 	TCCR2B = TCCR2B & 0b11111000 | 0x06; // 62.5KHz
+	OCR0A = 10;
+	OCR1A = 20;
+	OCR2A = 30;
+
 	analogWrite(pwmPin,127);
 	pinMode(8,OUTPUT);
 	analogWrite(8,100);
@@ -246,6 +247,7 @@ void loop() {
 		} else {
 			currentChannel=0;
 		}
+		ADMUX&=0xF8;
 		capturedFrameFlags=0;
 		sei();
 		start_adc();
@@ -284,7 +286,7 @@ ISR(ADC_vect)
 			capturedFrameFlags|=CAPTURED_FRAME_FLAG_AUTOTRIGGERED;
 			goto do_switch_channel;
 		} else {
-			if (!(flags&BYTE_FLAG_INVERTTRIGGER)) {
+			if (!(flags&FLAG_INVERT_TRIGGER)) {
 				if (sampled>=params.triggerLevel && last<params.triggerLevel) {
 					flags|= BYTE_FLAG_TRIGGERED;
 					goto do_switch_channel;
@@ -349,11 +351,11 @@ ISR(ADC_vect)
 			holdoff=params.holdoffSamples;
 			autoTrigCount=0;
 			if (flags & FLAG_CHANNEL_SEQUENTIAL) {
-                capturedFrameFlags |= CAPTURED_FRAME_FLAG_SEQUENTIAL_CHANNEL;
+				capturedFrameFlags |= CAPTURED_FRAME_FLAG_SEQUENTIAL_CHANNEL;
 			}
 			//currentChannel=0;
 			last=0;
-			if (!(flags&BYTE_FLAG_INVERTTRIGGER))
+			if (!(flags&FLAG_INVERT_TRIGGER))
 				last--;
 		}
 		ADMUX=inadmux;
@@ -532,8 +534,8 @@ END_FUNCTION
 
 DECLARE_FUNCTION(COMMAND_SET_FLAGS)(uint8_t val) {
 	cli();
-	params.flags &= ~(BYTE_FLAG_INVERTTRIGGER);
-	val &= BYTE_FLAG_INVERTTRIGGER;
+	params.flags &= ~(FLAG_INVERT_TRIGGER|FLAG_CHANNEL_SEQUENTIAL);
+	val &= (FLAG_INVERT_TRIGGER|FLAG_CHANNEL_SEQUENTIAL);
 	params.flags |= val;
 	sei();
 	send_parameters();

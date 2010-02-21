@@ -262,15 +262,15 @@ static void draw(GtkWidget *scope, cairo_t *cr)
 	cairo_font_extents(cr, &fe);
 	cairo_text_extents(cr, text, &te);
 
-	vtextpos = scope->allocation.y + scope->allocation.height - te.height;
+	vtextpos = scope->allocation.height - te.height;
 
 	cairo_move_to(cr,
-				  scope->allocation.x + scope->allocation.width - te.width - 10,
+				  scope->allocation.width - te.width - 10,
 				  vtextpos
 				 );
 	cairo_show_text(cr, text);
 
-	if (self->channels>1) {
+	if (self->channels>1 && !(self->flags&CAPTURED_FRAME_FLAG_SEQUENTIAL_CHANNEL)) {
 		sprintf(text,"fMax/chan: %.02fHz", self->freq/(2*self->channels));
 	} else {
 		sprintf(text,"fMax: %.02fHz", self->freq/2);

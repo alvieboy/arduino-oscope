@@ -41,14 +41,17 @@ GtkWidget *knob_trigger;
 GtkWidget *knob_holdoff;
 GtkWidget *combo_prescaler;
 GtkWidget *combo_vref;
+GtkWidget *set_chan[4];
 //GtkWidget *combo_channels;
 //GtkWidget *knob_channels;
 GtkWidget *shot_button;
 GtkWidget *freeze_button;
 GtkStyle *style;
+GtkWidget *sequential_check;
 
 unsigned short numSamples;
 static gboolean frozen=FALSE;
+static gboolean do_apply=TRUE;
 
 const unsigned long arduino_freq = 16000000; // 16 MHz
 
@@ -82,9 +85,11 @@ void scope_got_parameters(unsigned char triggerLevel,
 						  unsigned char flags,
 						  unsigned char num_channels)
 {
+	do_apply = FALSE;
+
 	numSamples=numS;
 	gtk_widget_set_size_request(image,numS,256 + 80);
-	gtk_widget_set_size_request(digital_image,numS,128);
+	// gtk_widget_set_size_request(digital_image,numS,128);
 	scope_display_set_samples(image,numS);
 	scope_display_set_channels(image,num_channels);
 
@@ -102,15 +107,30 @@ void scope_got_parameters(unsigned char triggerLevel,
 	}
 
 	gtk_combo_box_set_active(GTK_COMBO_BOX(combo_prescaler),7-prescale);
+
+	int i = (num_channels)&0x3;
+	fprintf(stderr,"Activate %d channels\n", i+1);
+	gtk_toggle_button_set_active( GTK_TOGGLE_BUTTON(set_chan[i]), true);
+
+	gtk_toggle_button_set_active( GTK_TOGGLE_BUTTON(sequential_check), !!(flags&FLAG_CHANNEL_SEQUENTIAL));
+
 	//gtk_combo_box_set_active(GTK_COMBO_BOX(combo_channels),num_channels-1);
 	// knob_set_value( KNOB(knob_channels), num_channels );
+
+	// Flush all events.
+
+	while (gtk_events_pending ())
+		gtk_main_iteration ();
+
+	do_apply = TRUE;
 }
 
 
 gboolean trigger_level_changed(GtkWidget *widget)
 {
 	int l = (int)knob_get_value(KNOB(widget));
-	serial_set_trigger_level(l & 0xff);
+	if (do_apply)
+		serial_set_trigger_level(l & 0xff);
 	current_trigger_level=l&0xff;
 	scope_display_set_trigger_level(image,l&0xff);
 	return TRUE;
@@ -119,7 +139,8 @@ gboolean trigger_level_changed(GtkWidget *widget)
 gboolean holdoff_level_changed(GtkWidget *widget)
 {
 	int l = (int)knob_get_value(KNOB(widget));
-	serial_set_holdoff(l & 0xff);
+	if (do_apply)
+		serial_set_holdoff(l & 0xff);
 
 	return TRUE;
 }
@@ -139,7 +160,8 @@ gboolean prescaler_changed(GtkWidget *widget)
         return FALSE;
 	int base = (int)log2((double)atoi(c));
 	printf("Prescale: 0x%x\n",base);
-	serial_set_prescaler(base);
+	if (do_apply)
+		serial_set_prescaler(base);
 
 	double fsample = get_sample_frequency(arduino_freq, atol(c));
 	printf("Fsample: %F Hz\n", fsample);
@@ -170,14 +192,16 @@ gboolean vref_changed(GtkWidget *widget)
 	} else {
 		base = 3;
 	}
-	serial_set_vref(base);
+	if (do_apply)
+		serial_set_vref(base);
 	return TRUE;
 }
 
 void trigger_toggle_changed(GtkWidget *widget)
 {
 	gboolean active = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
-	serial_set_trigger_invert(active);
+	if (do_apply)
+		serial_set_trigger_invert(active);
 }
 
 void channels_changed(GtkWidget *widget)
@@ -186,7 +210,8 @@ void channels_changed(GtkWidget *widget)
 	//char *active_s = gtk_combo_box_get_active_text(GTK_COMBO_BOX(widget));
 	//if (active_s)
 	//	serial_set_channels(atoi(active_s));
-	serial_set_channels(v);
+	if (do_apply)
+		serial_set_channels(v);
 }
 
 void cancel_trigger(GtkDialog *widget)
@@ -357,28 +382,28 @@ int main(int argc,char **argv)
 	gtk_box_pack_start(GTK_BOX(hbox),scale_zoom,TRUE,TRUE,0);
 	g_signal_connect(G_OBJECT(scale_zoom),"value-changed",G_CALLBACK(&zoom_changed),NULL);
 
-	GtkWidget *chan1 = gtk_radio_button_new_with_label(NULL,"1");
-	GtkWidget *chan2 = gtk_radio_button_new_with_label_from_widget(GTK_RADIO_BUTTON(chan1),"2");
-	GtkWidget *chan3 = gtk_radio_button_new_with_label_from_widget(GTK_RADIO_BUTTON(chan1),"3");
-	GtkWidget *chan4 = gtk_radio_button_new_with_label_from_widget(GTK_RADIO_BUTTON(chan1),"4");
+	set_chan[0] = gtk_radio_button_new_with_label(NULL,"1");
+	set_chan[1] = gtk_radio_button_new_with_label_from_widget(GTK_RADIO_BUTTON(set_chan[0]),"2");
+	set_chan[2] = gtk_radio_button_new_with_label_from_widget(GTK_RADIO_BUTTON(set_chan[0]),"3");
+	set_chan[3] = gtk_radio_button_new_with_label_from_widget(GTK_RADIO_BUTTON(set_chan[0]),"4");
 
 	hbox = gtk_hbox_new(FALSE,0);
 
 	gtk_box_pack_start(GTK_BOX(hbox),gtk_label_new("Channels:"),FALSE,FALSE,0);
-	gtk_box_pack_start(GTK_BOX(hbox),chan1,FALSE,FALSE,0);
-	gtk_box_pack_start(GTK_BOX(hbox),chan2,FALSE,FALSE,0);
-	gtk_box_pack_start(GTK_BOX(hbox),chan3,FALSE,FALSE,0);
-	gtk_box_pack_start(GTK_BOX(hbox),chan4,FALSE,FALSE,0);
+	gtk_box_pack_start(GTK_BOX(hbox),set_chan[0],FALSE,FALSE,0);
+	gtk_box_pack_start(GTK_BOX(hbox),set_chan[1],FALSE,FALSE,0);
+	gtk_box_pack_start(GTK_BOX(hbox),set_chan[2],FALSE,FALSE,0);
+	gtk_box_pack_start(GTK_BOX(hbox),set_chan[3],FALSE,FALSE,0);
 
-	GtkWidget *sequential_check = gtk_check_button_new_with_label("Seq");
+	sequential_check = gtk_check_button_new_with_label("Seq");
 
 	gtk_box_pack_start(GTK_BOX(hbox),sequential_check,FALSE,FALSE,0);
 	gtk_box_pack_start(GTK_BOX(hbox),gtk_label_new(""),TRUE,TRUE,0);
 
-	g_signal_connect(G_OBJECT(chan1),"toggled",G_CALLBACK(&channel_changed),(void*)1);
-	g_signal_connect(G_OBJECT(chan2),"toggled",G_CALLBACK(&channel_changed),(void*)2);
-	g_signal_connect(G_OBJECT(chan3),"toggled",G_CALLBACK(&channel_changed),(void*)3);
-	g_signal_connect(G_OBJECT(chan4),"toggled",G_CALLBACK(&channel_changed),(void*)4);
+	g_signal_connect(G_OBJECT(set_chan[0]),"toggled",G_CALLBACK(&channel_changed),(void*)1);
+	g_signal_connect(G_OBJECT(set_chan[1]),"toggled",G_CALLBACK(&channel_changed),(void*)2);
+	g_signal_connect(G_OBJECT(set_chan[2]),"toggled",G_CALLBACK(&channel_changed),(void*)3);
+	g_signal_connect(G_OBJECT(set_chan[3]),"toggled",G_CALLBACK(&channel_changed),(void*)4);
 
 	g_signal_connect(G_OBJECT(sequential_check),"toggled",G_CALLBACK(&channel_seq_changed),NULL);
 
