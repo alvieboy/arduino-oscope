@@ -196,12 +196,12 @@ void setup()
 	setup_adc();
 
 	/* Simple test for PWM output */
-	TCCR0B = TCCR0B & 0b11111000 | 0x04; // 62.5KHz
-	TCCR1B = TCCR1B & 0b11111000 | 0x05; // 62.5KHz
-	TCCR2B = TCCR2B & 0b11111000 | 0x06; // 62.5KHz
-	OCR0A = 10;
-	OCR1A = 20;
-	OCR2A = 30;
+	TCCR0B = (TCCR0B & 0b11111000) | 0x02; // 62.5KHz
+	TCCR1B = (TCCR1B & 0b11111000) | 0x02; // 62.5KHz
+	TCCR2B = (TCCR2B & 0b11111000) | 0x02; // 62.5KHz
+	//OCR0A = 10;
+   // OCR1A = 20;
+   // OCR2A = 30;
 
 	analogWrite(pwmPin,127);
 	pinMode(8,OUTPUT);

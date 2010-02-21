@@ -439,7 +439,7 @@ static void knob_class_init (KnobClass *cl)
 
 
 	widget_class->expose_event = knob_expose;
-    widget_class->size_request = knob_size_request;
+	widget_class->size_request = knob_size_request;
 	widget_class->realize = knob_realize;
 	widget_class->scroll_event = knob_scroll_event;
 	widget_class->button_press_event = knob_button_press_event;

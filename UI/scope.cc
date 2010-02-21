@@ -49,7 +49,7 @@ static void scope_display_init (ScopeDisplay *scope)
 		scope->chancfg[i].gain=1.0;
 	scope->scope_xpos = 0;
 	scope->scope_ypos = 0;
-    scope->numSamples = 962;
+	scope->numSamples = 962;
 }
 
 GtkWidget *scope_display_new (void)
@@ -136,130 +136,148 @@ static void draw(GtkWidget *scope, cairo_t *cr)
 
 	cairo_set_source_rgb( cr, 0, 255, 0);
 	//cairo_set_line_width(cr,1.0);
-
+	if (self->mode == MODE_DFT)
+	{
 #ifdef HAVE_DFT
 
-	int v;
-	if (NULL!=self->dbuf_output) {
-		for (i=0; i<self->numSamples/self->zoom; i++) {
-			cairo_move_to(cr,lx,ly);
-			v = self->dbuf_output[i]/16;
-			if (v<0)
-				v=0;
-			if (v>255)
-				v=255;
-			lx=scope->allocation.x + i*self->zoom;
-			ly=scope->allocation.y+scope->allocation.height - v;
-			cairo_line_to(cr,lx,ly);
-		}
-		cairo_stroke (cr);
-	}
+		//double samplerate = self->freq;
+		
+		double dynamplituderatio=0.0;
 
-#else
-	if (NULL!=self->dbuf[0]) {
+		int v;
+		if (NULL!=self->dbuf_output) {
+			// AUTO PEAK
+			static double max=0;
+			for (i=0; i<(self->numSamples/self->zoom)/2; i++) {
 
-		if (self->xy && self->channels == 2) {
+				double iv = sqrt(self->dbuf_output[i] * self->dbuf_output[i]);
+				if (iv>max)
+					max=iv;
+			}
 
-			lx=self->scope_xpos;
-			ly=self->scope_ypos + self->analog_height;
+            dynamplituderatio = 255.0/max;
 
-			for (i=0; i<self->numSamples; i+=2) {
-				cairo_move_to(cr,
-							  lx + ((int)self->dbuf[i])-127 ,
-							  ly + ((int)self->dbuf[i+1])-127
-							 );
-				lx+=i*self->zoom;
-				ly-=self->dbuf[0][i];
+			for (i=0; i<(self->numSamples/self->zoom)/2; i++) {
+
+				double iv = sqrt(self->dbuf_output[i] * self->dbuf_output[i]);
+
+				cairo_move_to(cr,lx,ly);
+				v = (int)(iv * dynamplituderatio);
+				if (v<0)
+					v=0;
+				if (v>255)
+					v=255;
+				lx=self->scope_xpos + i*self->zoom*2;
+				ly=self->scope_ypos + self->analog_height - v;
 				cairo_line_to(cr,lx,ly);
 			}
 			cairo_stroke (cr);
+		}
+#endif
+	} else {
+		if (NULL!=self->dbuf[0]) {
 
-		} else {
-			if (self->flags&CAPTURED_FRAME_FLAG_SEQUENTIAL_CHANNEL) {
+			if (self->xy && self->channels == 2) {
 
-				unsigned int start;
+				lx=self->scope_xpos;
+				ly=self->scope_ypos + self->analog_height;
 
-				for (start=0; start<self->channels; start++) {
-					gboolean firstsample = true;
-
-					cairo_set_source_rgb(cr, colors[start].r,colors[start].g,colors[start].b);
-
-					lx=self->scope_xpos + start;
-					ly=self->scope_ypos + self->analog_height;
-
-					/* HACK - 1st sample of 2,3 and 4 channels is always wrong, because it
-					 belongs to trigger channel (1)*/
-					if (start>0) {
-						fprintf(stderr,"Fixing 1st sample of %u to %u\n",
-								self->dbuf[start][0] , self->dbuf[start][1]);
-
-						self->dbuf[start][0] = self->dbuf[start][1];
-					}
-
-					for (i=0; i<self->numSamples/self->zoom; i++) {
-
-						cairo_move_to(cr,lx,ly);
-
-						lx=self->scope_xpos + i*self->zoom;
-						ly=self->scope_ypos + self->analog_height - ((double)self->dbuf[start][i]*(double)self->chancfg[start].gain)
-							- (double)self->chancfg[start].ypos;
-
-						if (ly>(self->scope_ypos+self->analog_height-1))
-							ly=self->scope_ypos+self->analog_height-1;
-
-						if (ly<self->scope_ypos)
-							ly=self->scope_ypos;
-
-						if (!firstsample) {
-							cairo_line_to(cr,lx,ly);
-						} else {
-							firstsample=false;
-						}
-					}
-					cairo_stroke (cr);
-
+				for (i=0; i<self->numSamples; i+=2) {
+					cairo_move_to(cr,
+								  lx + ((int)self->dbuf[i])-127 ,
+								  ly + ((int)self->dbuf[i+1])-127
+								 );
+					lx+=i*self->zoom;
+					ly-=self->dbuf[0][i];
+					cairo_line_to(cr,lx,ly);
 				}
-
-
+				cairo_stroke (cr);
 
 			} else {
-				unsigned int start;
-				for (start=0; start<self->channels; start++) {
-					gboolean firstsample = true;
-					cairo_set_source_rgb(cr, colors[start].r,colors[start].g,colors[start].b);
+				if (self->flags&CAPTURED_FRAME_FLAG_SEQUENTIAL_CHANNEL) {
 
-					lx=self->scope_xpos + start;
-					ly=self->scope_ypos + self->analog_height;
+					unsigned int start;
 
-					for (i=start; i<self->numSamples/self->zoom; i+=self->channels) {
+					for (start=0; start<self->channels; start++) {
+						gboolean firstsample = true;
 
-						cairo_move_to(cr,lx,ly);
+						cairo_set_source_rgb(cr, colors[start].r,colors[start].g,colors[start].b);
 
-						lx=self->scope_xpos + i*self->zoom;
-						ly=self->scope_ypos + self->analog_height - ((double)self->dbuf[0][i]*(double)self->chancfg[start].gain)
-							- (double)self->chancfg[start].ypos;
+						lx=self->scope_xpos + start;
+						ly=self->scope_ypos + self->analog_height;
 
-						if (ly>(self->scope_ypos+self->analog_height-1))
-							ly=self->scope_ypos+self->analog_height-1;
+						/* HACK - 1st sample of 2,3 and 4 channels is always wrong, because it
+						 belongs to trigger channel (1)*/
+						if (start>0) {
+							fprintf(stderr,"Fixing 1st sample of %u to %u\n",
+									self->dbuf[start][0] , self->dbuf[start][1]);
 
-						if (ly<self->scope_ypos)
-							ly=self->scope_ypos;
-
-						if (!firstsample) {
-							cairo_line_to(cr,lx,ly);
-						} else {
-							firstsample=false;
+							self->dbuf[start][0] = self->dbuf[start][1];
 						}
+
+						for (i=0; i<self->numSamples/self->zoom; i++) {
+
+							cairo_move_to(cr,lx,ly);
+
+							lx=self->scope_xpos + i*self->zoom;
+							ly=self->scope_ypos + self->analog_height - ((double)self->dbuf[start][i]*(double)self->chancfg[start].gain)
+								- (double)self->chancfg[start].ypos;
+
+							if (ly>(self->scope_ypos+self->analog_height-1))
+								ly=self->scope_ypos+self->analog_height-1;
+
+							if (ly<self->scope_ypos)
+								ly=self->scope_ypos;
+
+							if (!firstsample) {
+								cairo_line_to(cr,lx,ly);
+							} else {
+								firstsample=false;
+							}
+						}
+						cairo_stroke (cr);
+
 					}
-					cairo_stroke (cr);
 
+
+
+				} else {
+					unsigned int start;
+					for (start=0; start<self->channels; start++) {
+						gboolean firstsample = true;
+						cairo_set_source_rgb(cr, colors[start].r,colors[start].g,colors[start].b);
+
+						lx=self->scope_xpos + start;
+						ly=self->scope_ypos + self->analog_height;
+
+						for (i=start; i<self->numSamples/self->zoom; i+=self->channels) {
+
+							cairo_move_to(cr,lx,ly);
+
+							lx=self->scope_xpos + i*self->zoom;
+							ly=self->scope_ypos + self->analog_height - ((double)self->dbuf[0][i]*(double)self->chancfg[start].gain)
+								- (double)self->chancfg[start].ypos;
+
+							if (ly>(self->scope_ypos+self->analog_height-1))
+								ly=self->scope_ypos+self->analog_height-1;
+
+							if (ly<self->scope_ypos)
+								ly=self->scope_ypos;
+
+							if (!firstsample) {
+								cairo_line_to(cr,lx,ly);
+							} else {
+								firstsample=false;
+							}
+						}
+						cairo_stroke (cr);
+
+					}
 				}
-			}
 
+			}
 		}
 	}
-
-#endif
 
 	cairo_set_font_size (cr, 12);
 	cairo_set_source_rgb (cr, 0.5,1.0,1.0);
@@ -318,16 +336,19 @@ void scope_display_set_samples(GtkWidget *scope, unsigned short numSamples)
 	}
 	self->numSamples = numSamples;
 #ifdef HAVE_DFT
+
 	if(self->dbuf_real)
 		g_free(self->dbuf_real);
-	self->dbuf_real = g_malloc(numSamples*sizeof(double));
+
+	self->dbuf_real = (double*)g_malloc(numSamples*sizeof(double));
 
 	if(self->dbuf_output)
 		g_free(self->dbuf_output);
-	self->dbuf_output = g_malloc(numSamples*sizeof(double));
+
+	self->dbuf_output = (double*)g_malloc(numSamples*sizeof(double));
 
 	self->plan = fftw_plan_r2r_1d(numSamples, self->dbuf_real, self->dbuf_output,
-								  FFTW_REDFT01, 0);
+								   FFTW_R2HC, FFTW_FORWARD);
 
 #endif
 
@@ -370,13 +391,22 @@ void scope_display_set_data(GtkWidget *scope, unsigned char *data, size_t size)
 		d++;
 	}
 #ifdef HAVE_DFT
-	d = data;
+	d = data + 2;
+
 	dc = (double)sum / (double)self->numSamples;
 
-	for (i=1; i<size && i<self->numSamples; i++) {
-		self->dbuf_real[i-1] = ((double)*d ) - dc;
+	for (i=0; i<size && i<self->numSamples; i++) {
+
+		self->dbuf_real[i] = ((double)*d ) - dc;
+
+		//self->dbuf_real[i]  = sin( (double)i / 2.0 ) * 127.0;
+
 		d++;
 	}
+
+	memset((void *)self->dbuf_output, 0, self->numSamples * sizeof(double));
+
+
 	fftw_execute(self->plan);
 #endif
 	self->flags = flags;
@@ -402,7 +432,14 @@ void scope_display_set_channels(GtkWidget *scope, unsigned char channels)
 	gtk_widget_queue_draw(scope);
 
 }
+void scope_set_mode(GtkWidget*scope, scope_mode_t mode)
+{
+	ScopeDisplay *self = SCOPE_DISPLAY(scope);
 
+	self->mode=mode;
+	//gtk_widget_queue_draw(scope);
+
+}
 void scope_display_set_channel_config(GtkWidget *scope,
 									  int channel,
 									  int xpos,
@@ -441,6 +478,28 @@ static void scope_size_request(GtkWidget *widget,GtkRequisition *requisition)
 }
 
 
+
+static gboolean scope_motion_event(GtkWidget *scope, GdkEventMotion      *event)
+{
+	int x,y;
+
+	ScopeDisplay *self = SCOPE_DISPLAY(scope);
+	x = (int)event->x - scope->allocation.x;
+	y = (int)event->y - scope->allocation.y;
+	//printf("%d %d\n",x,y);
+
+	double correction = self->freq / self->numSamples;
+
+	printf("Freq: %f Hz (%f)\n", correction*x/2, self->freq/2);
+	return TRUE;
+}
+
+static void scope_realize(GtkWidget*scope)
+{
+	GTK_WIDGET_CLASS (scope_display_parent_class)->realize (scope);
+	gtk_widget_add_events(scope,GDK_POINTER_MOTION_MASK);
+}
+
 static void scope_display_class_init (ScopeDisplayClass *cl)
 {
 	GtkWidgetClass *widget_class;
@@ -448,7 +507,9 @@ static void scope_display_class_init (ScopeDisplayClass *cl)
 	widget_class = GTK_WIDGET_CLASS (cl);
 
 	widget_class->expose_event = scope_display_expose;
-    widget_class->size_request = scope_size_request;
+	widget_class->size_request = scope_size_request;
+	widget_class->motion_notify_event = scope_motion_event;
+    widget_class->realize = scope_realize;
 }
 
 struct channelConfig *scope_display_get_config_for_channel(GtkWidget *scope, int chan)

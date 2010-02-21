@@ -49,6 +49,10 @@ GtkWidget *freeze_button;
 GtkStyle *style;
 GtkWidget *sequential_check;
 
+#ifdef HAVE_DFT
+GtkWidget *isdft;
+#endif
+
 unsigned short numSamples;
 static gboolean frozen=FALSE;
 static gboolean do_apply=TRUE;
@@ -338,6 +342,13 @@ void channel_seq_changed(GtkWidget *w, void *data)
 	serial_set_sequential_channel(isseq);
 }
 
+#ifdef HAVE_DFT
+void dft_changed(GtkWidget *w, void *data)
+{
+	gboolean dft = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(w));
+	scope_set_mode(image, dft ? MODE_DFT : MODE_NORMAL);
+}
+#endif
 
 int main(int argc,char **argv)
 {
@@ -398,6 +409,14 @@ int main(int argc,char **argv)
 	sequential_check = gtk_check_button_new_with_label("Seq");
 
 	gtk_box_pack_start(GTK_BOX(hbox),sequential_check,FALSE,FALSE,0);
+
+#ifdef HAVE_DFT
+	isdft = gtk_check_button_new_with_label("DFT");
+	g_signal_connect(G_OBJECT(isdft),"toggled",G_CALLBACK(&dft_changed),NULL);
+	gtk_box_pack_start(GTK_BOX(hbox),isdft,FALSE,FALSE,0);
+
+#endif
+
 	gtk_box_pack_start(GTK_BOX(hbox),gtk_label_new(""),TRUE,TRUE,0);
 
 	g_signal_connect(G_OBJECT(set_chan[0]),"toggled",G_CALLBACK(&channel_changed),(void*)1);

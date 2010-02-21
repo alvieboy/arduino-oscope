@@ -24,7 +24,14 @@
 
 #ifdef HAVE_DFT
 #include <fftw3.h>
+
+typedef enum {
+	MODE_NORMAL,MODE_DFT
+} scope_mode_t;
+
 #endif
+
+
 
 typedef struct _ScopeDisplay ScopeDisplay;
 typedef struct _ScopeDisplayClass       ScopeDisplayClass;
@@ -43,7 +50,7 @@ struct _ScopeDisplay
 #ifdef HAVE_DFT
 	double *dbuf_real;
 	double *dbuf_output;
-	enum { MODE_NORMAL,MODE_DFT } mode;
+	scope_mode_t mode;
 	fftw_plan plan;
 #endif
 	struct channelConfig chancfg[4];
@@ -75,5 +82,7 @@ void scope_display_set_samples(GtkWidget *scope, unsigned short numSamples);
 void scope_display_set_sample_freq(GtkWidget *scope, double freq);
 void scope_display_set_channels(GtkWidget *scope, unsigned char);
 struct channelConfig *scope_display_get_config_for_channel(GtkWidget *scope, int chan);
-
+#ifdef HAVE_DFT
+void scope_set_mode(GtkWidget*self, scope_mode_t mode);
+#endif
 #endif
