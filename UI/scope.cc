@@ -155,7 +155,7 @@ static void draw(GtkWidget *scope, cairo_t *cr)
 					max=iv;
 			}
 
-            dynamplituderatio = 255.0/max;
+			dynamplituderatio = 255.0/max;
 
 			for (i=0; i<(self->numSamples/self->zoom)/2; i++) {
 
