@@ -43,16 +43,22 @@ static void knob_init (Knob *knob)
 	knob->divtitles = NULL;
 	knob->divtitles_extents = NULL;
 	knob->knob_radius = 10.0;
-	knob->snap_to_divisions = TRUE;
+	knob->snap_to_divisions = FALSE;
 }
 
-static void knob_align(Knob *self)
+void knob_set_value(Knob *self,double value)
 {
+	double newvalue = value;
 	GtkAdjustment *adj = GTK_ADJUSTMENT(self->adj);
+
 	if (self->snap_to_divisions) {
-		double delta = ( adj->upper - adj->lower ) / self->divisions;
-		fprintf(stderr,"Delta: %f\n",delta);
+		double delta = ( adj->upper - adj->lower ) / (self->divisions-1);
+		double dval = value - adj->lower;
+		int steps = (dval/delta);
+		newvalue = (steps * delta) + adj->lower;
 	}
+
+	gtk_adjustment_set_value(adj,newvalue);
 }
 
 GtkWidget *knob_new_with_range(const gchar *label, double min, double max, double step,double page, double def)
@@ -268,6 +274,7 @@ static gboolean knob_scroll_event(GtkWidget*knob,GdkEventScroll*event)
 	GtkAdjustment *adj = GTK_ADJUSTMENT(self->adj);
 
 	double diff=5*adj->step_increment;
+	double newvalue;
 
 	switch (event->state)
 	{
@@ -283,17 +290,17 @@ static gboolean knob_scroll_event(GtkWidget*knob,GdkEventScroll*event)
 
 	switch(event->direction) {
 	case GDK_SCROLL_UP:
-		adj->value = adj->value + diff;
-		if (adj->value>adj->upper)
-			adj->value = adj->upper;
-		knob_align(self);
+		newvalue = adj->value + diff;
+		if (newvalue>adj->upper)
+			newvalue = adj->upper;
+		knob_set_value(self,newvalue);
 		gtk_adjustment_value_changed(adj);
 		break;
 	case GDK_SCROLL_DOWN:
-		adj->value = adj->value - diff;
-		if (adj->value<adj->lower)
-			adj->value = adj->lower;
-		knob_align(self);
+		newvalue = adj->value - diff;
+		if (newvalue<adj->lower)
+			newvalue = adj->lower;
+		knob_set_value(self,newvalue);
 		gtk_adjustment_value_changed(adj);
 
 		break;
@@ -337,7 +344,7 @@ static void knob_set_value_by_vector(Knob *self,double dx, double dy)
 		new_value = self->validator(new_value,self);
 	}
 
-	gtk_adjustment_set_value(adj, new_value);
+	knob_set_value(self, new_value);
 
 }
 
@@ -409,9 +416,7 @@ static gboolean knob_key_press_event(GtkWidget*knob,GdkEventKey*event)
     if (newvalue>adj->upper)
 		newvalue=adj->upper;
 
-	knob_align(self);
-
-	gtk_adjustment_set_value(adj,newvalue);
+	knob_set_value(self,newvalue);
 
 	return TRUE;
 }
@@ -468,8 +473,4 @@ double knob_get_value(Knob *self)
 	return gtk_adjustment_get_value(GTK_ADJUSTMENT(self->adj));
 }
 
-void knob_set_value(Knob *self,double value)
-{
-	gtk_adjustment_set_value(GTK_ADJUSTMENT(self->adj),value);
-}
 
