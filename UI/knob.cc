@@ -42,6 +42,7 @@ static void knob_init (Knob *knob)
 	knob->divisions = 13;
 	knob->divtitles = NULL;
 	knob->divtitles_extents = NULL;
+	knob->knob_radius = 10.0;
 }
 
 GtkWidget *knob_new_with_range(const gchar *label, double min, double max, double step,double page, double def)
@@ -127,18 +128,18 @@ static void draw(GtkWidget *knob, cairo_t *cr)
 	} else {
 		cairo_set_source_rgb( cr, 0.7,0.7,0.7);
 	}
-	cairo_arc( cr, w/2,h/2, 10, 0, 2.0 * G_PI);
+	cairo_arc( cr, w/2,h/2, self->knob_radius, 0, 2.0 * G_PI);
 	cairo_fill(cr);
 
 	cairo_set_source_rgb( cr, 0,0,0);
-	cairo_arc( cr, w/2,h/2, 10, 0, 2.0 * G_PI);
+	cairo_arc( cr, w/2,h/2, self->knob_radius, 0, 2.0 * G_PI);
 	cairo_stroke(cr);
 
 	// Indicator line
 
 	cairo_set_source_rgb(cr,1.0,0,0);
-	cairo_move_to(cr, w/2.0 + 9.0*cos(angle) ,h/2 + 9.0*sin(angle));
-	cairo_line_to(cr, w/2.0 + 1.0*cos(angle) ,h/2 + 1.0*sin(angle));
+	cairo_move_to(cr, w/2.0 + 0.9*self->knob_radius*cos(angle) ,h/2 + 0.9*self->knob_radius*sin(angle));
+	cairo_line_to(cr, w/2.0 + 0.1*self->knob_radius*cos(angle) ,h/2 + 0.1*self->knob_radius*sin(angle));
 	cairo_stroke(cr);
 
 	// Range
@@ -146,7 +147,7 @@ static void draw(GtkWidget *knob, cairo_t *cr)
 	cairo_set_source_rgb( cr, 0,0,0);
 	cairo_set_line_width (cr, 1.0);
 
-	cairo_arc( cr, w/2,h/2, 14, self->rest_angle + G_PI_2, 2.0 * G_PI - self->rest_angle + G_PI_2);
+	cairo_arc( cr, w/2,h/2, self->knob_radius+4.0, self->rest_angle + G_PI_2, 2.0 * G_PI - self->rest_angle + G_PI_2);
 	cairo_stroke(cr);
 
 	// Draw metering lines
@@ -167,8 +168,8 @@ static void draw(GtkWidget *knob, cairo_t *cr)
 
 		cairo_set_source_rgb( cr, 0,0,0);
 
-		cairo_move_to(cr, w/2.0 + 14.0*cos(i), h/2.0+14.0*sin(i));
-		cairo_line_to(cr, w/2.0 + 18.0*cos(i), h/2.0+18.0*sin(i));
+		cairo_move_to(cr, w/2.0 + (4.0+self->knob_radius)*cos(i), h/2.0+(4.0+self->knob_radius)*sin(i));
+		cairo_line_to(cr, w/2.0 + (8.0+self->knob_radius)*cos(i), h/2.0+(8.0+self->knob_radius)*sin(i));
 
 		cairo_stroke(cr);
 #if 0
@@ -199,7 +200,7 @@ static void draw(GtkWidget *knob, cairo_t *cr)
 
 
 	double px = (w/2.0)-(self->value_extents.width/2 + self->value_extents.x_bearing);
-	double py = (h/2.0 + 18)-(self->value_extents.height/2 + self->value_extents.y_bearing);
+	double py = (h/2.0 + (8.0+self->knob_radius))-(self->value_extents.height/2 + self->value_extents.y_bearing);
 
 	cairo_move_to (cr, px,py);
 	cairo_show_text (cr, self->display);
@@ -207,7 +208,7 @@ static void draw(GtkWidget *knob, cairo_t *cr)
 	cairo_set_font_size (cr, 8.0);
 
 	px = (w/2.0)-(self->title_extents.width/2 + self->title_extents.x_bearing);
-	py = (h/2.0 - 22.0)-(self->title_extents.height + self->title_extents.y_bearing);
+	py = (h/2.0 - (12.0+self->knob_radius))-(self->title_extents.height + self->title_extents.y_bearing);
 
 	cairo_move_to (cr, px,py);
 	cairo_show_text (cr, self->label);
@@ -417,8 +418,8 @@ static gboolean knob_focus_out_event(GtkWidget*knob,GdkEventFocus*event)
 static void knob_size_request(GtkWidget *widget,GtkRequisition *requisition)
 {
 	Knob *self = KNOB(widget);
-	requisition->width = 60;
-	requisition->height = 60;
+	requisition->width = self->knob_radius * 2 + 40;
+	requisition->height = self->knob_radius * 2 + 40;
 }
 
 

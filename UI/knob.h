@@ -41,6 +41,8 @@ struct _Knob
 	unsigned divisions;
 	GSList *divtitles;
 	GSList *divtitles_extents;
+
+	double knob_radius;
 };
 
 
