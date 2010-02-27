@@ -43,6 +43,16 @@ static void knob_init (Knob *knob)
 	knob->divtitles = NULL;
 	knob->divtitles_extents = NULL;
 	knob->knob_radius = 10.0;
+	knob->snap_to_divisions = TRUE;
+}
+
+static void knob_align(Knob *self)
+{
+	GtkAdjustment *adj = GTK_ADJUSTMENT(self->adj);
+	if (self->snap_to_divisions) {
+		double delta = ( adj->upper - adj->lower ) / self->divisions;
+		fprintf(stderr,"Delta: %f\n",delta);
+	}
 }
 
 GtkWidget *knob_new_with_range(const gchar *label, double min, double max, double step,double page, double def)
@@ -276,12 +286,14 @@ static gboolean knob_scroll_event(GtkWidget*knob,GdkEventScroll*event)
 		adj->value = adj->value + diff;
 		if (adj->value>adj->upper)
 			adj->value = adj->upper;
+		knob_align(self);
 		gtk_adjustment_value_changed(adj);
 		break;
 	case GDK_SCROLL_DOWN:
 		adj->value = adj->value - diff;
 		if (adj->value<adj->lower)
 			adj->value = adj->lower;
+		knob_align(self);
 		gtk_adjustment_value_changed(adj);
 
 		break;
@@ -396,6 +408,8 @@ static gboolean knob_key_press_event(GtkWidget*knob,GdkEventKey*event)
 		newvalue=adj->lower;
     if (newvalue>adj->upper)
 		newvalue=adj->upper;
+
+	knob_align(self);
 
 	gtk_adjustment_set_value(adj,newvalue);
 

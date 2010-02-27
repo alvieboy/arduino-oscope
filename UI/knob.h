@@ -43,6 +43,7 @@ struct _Knob
 	GSList *divtitles_extents;
 
 	double knob_radius;
+	gboolean snap_to_divisions;
 };
 
 
