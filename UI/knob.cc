@@ -39,7 +39,8 @@ static void knob_init (Knob *knob)
 	// Defaults
 	knob->rest_angle = G_PI_4;
 	knob->validator = NULL;
-	knob->divisions = 13;
+	knob->divisions = 7;
+	knob->divtitles = NULL;
 	knob->divtitles = NULL;
 	knob->divtitles_extents = NULL;
 	knob->knob_radius = 10.0;
@@ -168,15 +169,37 @@ static void draw(GtkWidget *knob, cairo_t *cr)
 
 	// Draw metering lines
 
-	double i;         
+	double i;
 	unsigned int z;
 	double delta = (G_PI*2.0 - 2.0*self->rest_angle)/(double)(self->divisions-1);
 
-    /* labels */
+	/* labels */
 	cairo_select_font_face (cr, "Sans", CAIRO_FONT_SLANT_NORMAL,
 							CAIRO_FONT_WEIGHT_BOLD);
-	cairo_set_font_size (cr, 8.0);
+	cairo_set_font_size (cr, 6.0);
 	/* end labels */
+
+	GSList *divtitle = self->divtitles;
+
+	if (NULL!=divtitle && self->divtitles_extents==NULL) {
+		fprintf(stderr,"Need to allocate extents\n");
+
+		/* Compute extents */
+		GSList *iter;
+		for (iter=divtitle; NULL!=iter; iter=g_slist_next(iter)) {
+
+			fprintf(stderr,"Allocate extents for '%s'\n", (gchar*) iter->data);
+			cairo_text_extents_t *extents = g_new(cairo_text_extents_t,1);
+
+			self->divtitles_extents = g_slist_append(self->divtitles_extents, extents);
+
+			//cairo_set_source_rgb( cr, 0.2,0.2,0.2);
+			cairo_text_extents(cr, (gchar*)iter->data, extents);
+		}
+        fprintf(stderr,"Extents computed\n");
+	}
+
+	GSList *divtitle_extents = self->divtitles_extents;
 
 	for (z=0, i=self->rest_angle + G_PI_2;
 		 z<self->divisions;
@@ -188,28 +211,43 @@ static void draw(GtkWidget *knob, cairo_t *cr)
 		cairo_line_to(cr, w/2.0 + (8.0+self->knob_radius)*cos(i), h/2.0+(8.0+self->knob_radius)*sin(i));
 
 		cairo_stroke(cr);
-#if 0
-		cairo_text_extents_t extents;
 
-		cairo_set_source_rgb( cr, 0.2,0.2,0.2);
+		if (NULL!=divtitle) {
+			fprintf(stderr,"Have title\n");
+			double DTEXTLEN = 10.0 + self->knob_radius;
 
-		cairo_text_extents(cr,"5ms",&extents);
+			/* Align left/right or center */
+			cairo_text_extents_t *extents = (cairo_text_extents_t*)divtitle_extents->data;
+			fprintf(stderr,"Got extents: %p\n",extents);
 
-#define DTEXTLEN 25.0
-		cairo_move_to(cr, w/2.0 + DTEXTLEN*cos(i) - extents.width/2.0,
-					  h/2.0+DTEXTLEN*sin(i) + extents.height/2.0);
+			if ( z<((self->divisions-1)/2) ) {
+				cairo_move_to(cr, w/2.0 + DTEXTLEN*cos(i) - extents->width,
+							  h/2.0+DTEXTLEN*sin(i) + extents->height/2.0);
+			} else if ( z==(self->divisions-1)/2 ) {
+				cairo_move_to(cr, w/2.0 + DTEXTLEN*cos(i) - extents->width/2,
+							  h/2.0+DTEXTLEN*sin(i));
 
-		cairo_show_text (cr, "5ms");
-#endif
+			} else {
+				cairo_move_to(cr, w/2.0 + DTEXTLEN*cos(i),
+							  h/2.0+DTEXTLEN*sin(i) + extents->height/2.0);
+
+			}
+
+			cairo_show_text (cr, (gchar*)divtitle->data);
+
+			divtitle = g_slist_next(divtitle);
+            divtitle_extents = g_slist_next(divtitle_extents);
+		}
+
 	}
 
 
-	
+
 	snprintf(self->display,16,"%d",(int)GTK_ADJUSTMENT(self->adj)->value);
 
 	compute_extents(knob, cr);
 
-    cairo_set_source_rgb( cr, 0.2,0.2,0.2);
+	cairo_set_source_rgb( cr, 0.2,0.2,0.2);
 	cairo_select_font_face (cr, "Sans", CAIRO_FONT_SLANT_NORMAL,
 							CAIRO_FONT_WEIGHT_BOLD);
 	cairo_set_font_size (cr, 8.0);
@@ -473,4 +511,26 @@ double knob_get_value(Knob *self)
 	return gtk_adjustment_get_value(GTK_ADJUSTMENT(self->adj));
 }
 
+GSList *knob_change_division_labels(Knob*self,GSList*list)
+{
+	GSList *old = self->divtitles;
+	GSList *iter;
+
+	int z;
+
+	if (self->divtitles_extents) {
+		g_slist_free(self->divtitles_extents);
+	}
+
+	self->divtitles = list;
+	self->divtitles_extents = NULL;
+
+	if (NULL==list)
+		return old;
+
+	
+
+	fprintf(stderr,"Have new division labels: %p\n",list);
+	return old;
+}
 

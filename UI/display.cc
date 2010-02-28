@@ -453,6 +453,15 @@ int main(int argc,char **argv)
 //    gtk_widget_set_size_request(knob_trigger,60,60);
 	g_signal_connect(G_OBJECT(knob_trigger),"value-changed",G_CALLBACK(&trigger_level_changed),NULL);
 
+
+	GSList *list = NULL;
+	list = g_slist_append(list,g_strdup("1"));
+	list = g_slist_append(list,g_strdup("2"));
+	list = g_slist_append(list,g_strdup("3"));
+
+	knob_change_division_labels(KNOB(knob_trigger),list);
+
+
 	knob_holdoff= knob_new_with_range("HOLD",0,255,1,10,0);
 	gtk_box_pack_start(GTK_BOX(hbox),knob_holdoff,TRUE,TRUE,0);
 //	gtk_widget_set_size_request(knob_holdoff,60,60);
