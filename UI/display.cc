@@ -57,7 +57,10 @@ unsigned short numSamples;
 static gboolean frozen=FALSE;
 static gboolean do_apply=TRUE;
 
-const unsigned long arduino_freq = 16000000; // 16 MHz
+static long arduino_freq = 16000000; // 16 MHz
+static long arduino_vref = 5000; // 5V
+static long arduino_avcc = 5000; // 5V
+static long arduino_current_vref = 5000; // 5V
 
 void win_destroy_callback()
 {
@@ -78,6 +81,10 @@ void mydigsetdata(unsigned char *data,size_t size)
 
 void scope_got_constants(uint32_t freq,uint16_t avcc,uint16_t vref)
 {
+
+	arduino_freq = freq;
+	arduino_avcc = avcc;
+	arduino_vref = vref;
 
 }
 
@@ -183,6 +190,24 @@ gboolean prescaler_changed(GtkWidget *widget)
 	return TRUE;
 }
 
+void voltage_changed()
+{
+	GSList *list = NULL;
+	GSList *oldlist;
+
+	int i;
+
+	for (i=0;i<7;i++) {
+		gchar *str;
+		asprintf(&str,"%.1f", (double)i*( ( (double)arduino_current_vref/1000.0)/6) );
+		list = g_slist_append(list,str);
+	}
+	oldlist = knob_change_division_labels(KNOB(knob_trigger),list);
+	if (oldlist)
+		g_slist_free(oldlist);
+
+}
+
 gboolean vref_changed(GtkWidget *widget)
 {
 	unsigned char base;
@@ -191,11 +216,17 @@ gboolean vref_changed(GtkWidget *widget)
 	/* Ugly :) */
 	if (!strcmp(c,"AREF")) {
 		base=0;
+		arduino_current_vref = arduino_vref;
 	} else if (!strcmp(c,"AVcc")) {
+		arduino_current_vref = arduino_avcc;
 		base=1;
 	} else {
+		arduino_current_vref = 1100;
 		base = 3;
 	}
+	fprintf(stderr,"New VREF: %f V\n", (double)arduino_current_vref/1000.0);
+	voltage_changed();
+
 	if (do_apply)
 		serial_set_vref(base);
 	return TRUE;
@@ -350,6 +381,17 @@ void dft_changed(GtkWidget *w, void *data)
 }
 #endif
 
+
+static gchar *voltage_formatter(long value, void *data)
+{
+	gchar *ret = NULL;
+
+	// TODO: fetch correct voltage from data
+
+	asprintf(&ret,"%.02f V", (double)value/255.0 * (double)arduino_current_vref/1000.0);
+	return ret;
+}
+
 int main(int argc,char **argv)
 {
 	GtkWidget*scale_zoom;
@@ -454,13 +496,10 @@ int main(int argc,char **argv)
 	g_signal_connect(G_OBJECT(knob_trigger),"value-changed",G_CALLBACK(&trigger_level_changed),NULL);
 
 
-	GSList *list = NULL;
-	list = g_slist_append(list,g_strdup("1"));
-	list = g_slist_append(list,g_strdup("2"));
-	list = g_slist_append(list,g_strdup("3"));
+	knob_set_formatter(KNOB(knob_trigger),&voltage_formatter,NULL);
+	knob_set_divisions(KNOB(knob_trigger),7);
 
-	knob_change_division_labels(KNOB(knob_trigger),list);
-
+    voltage_changed();
 
 	knob_holdoff= knob_new_with_range("HOLD",0,255,1,10,0);
 	gtk_box_pack_start(GTK_BOX(hbox),knob_holdoff,TRUE,TRUE,0);

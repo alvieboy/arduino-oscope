@@ -38,7 +38,9 @@ struct _Knob
 	cairo_text_extents_t value_extents;
 
 	long (*validator)(long value,struct _Knob *);
-	gchar *(*formatter)(long value, struct _Knob *);
+	gchar *(*formatter)(long value, void *);
+	
+	void *formatter_data;
 
 	unsigned divisions;
 	GSList *divtitles;
@@ -76,5 +78,5 @@ void knob_set_validator(Knob *self, long (*validator)(long,Knob*));
 void knob_set_divisions(Knob*self, long divisions);
 long knob_set_divisions(Knob*self);
 GSList *knob_change_division_labels(Knob*self,GSList*list);
-
+void knob_set_formatter(Knob *self, gchar *(*formatter)(long value, void *), void*data);
 #endif

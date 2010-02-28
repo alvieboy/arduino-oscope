@@ -34,7 +34,7 @@ static guint signals[LAST_SIGNAL];
 
 G_DEFINE_TYPE (Knob, knob, GTK_TYPE_DRAWING_AREA);
 
-static gchar *knob_formatter(long value, Knob *self)
+static gchar *knob_formatter(long value, void *data)
 {
     gchar *ret = NULL;
 	asprintf(&ret,"%ld",value);
@@ -46,7 +46,7 @@ static void knob_init (Knob *knob)
 	// Defaults
 	knob->rest_angle = G_PI_4;
 	knob->validator = NULL;
-	knob->divisions = 7;
+	knob->divisions = 13;
 	knob->divtitles = NULL;
 	knob->divtitles = NULL;
 	knob->divtitles_extents = NULL;
@@ -185,7 +185,9 @@ static void draw(GtkWidget *knob, cairo_t *cr)
 	/* labels */
 	cairo_select_font_face (cr, "Sans", CAIRO_FONT_SLANT_NORMAL,
 							CAIRO_FONT_WEIGHT_BOLD);
-	cairo_set_font_size (cr, 6.0);
+	double tick_labels_font_size = 7.0;
+
+	cairo_set_font_size (cr, tick_labels_font_size);
 	/* end labels */
 
 	GSList *divtitle = self->divtitles;
@@ -222,12 +224,13 @@ static void draw(GtkWidget *knob, cairo_t *cr)
 		cairo_stroke(cr);
 
 		if (NULL!=divtitle) {
-			fprintf(stderr,"Have title\n");
+
+			cairo_set_source_rgb( cr, 0.4,0.4,0.4 );
+
 			double DTEXTLEN = 10.0 + self->knob_radius;
 
 			/* Align left/right or center */
 			cairo_text_extents_t *extents = (cairo_text_extents_t*)divtitle_extents->data;
-			fprintf(stderr,"Got extents: %p\n",extents);
 
 			if ( z<((self->divisions-1)/2) ) {
 				cairo_move_to(cr, w/2.0 + DTEXTLEN*cos(i) - extents->width,
@@ -241,6 +244,7 @@ static void draw(GtkWidget *knob, cairo_t *cr)
 							  h/2.0+DTEXTLEN*sin(i) + extents->height/2.0);
 
 			}
+
 
 			cairo_show_text (cr, (gchar*)divtitle->data);
 
@@ -264,6 +268,9 @@ static void draw(GtkWidget *knob, cairo_t *cr)
 	double px = (w/2.0)-(self->value_extents.width/2 + self->value_extents.x_bearing);
 	double py = (h/2.0 + (8.0+self->knob_radius))-(self->value_extents.height/2 + self->value_extents.y_bearing);
 
+	if (self->divtitles) {
+		py += tick_labels_font_size;
+	}
 	cairo_move_to (cr, px,py);
 	cairo_show_text (cr, self->display);
 
@@ -272,7 +279,11 @@ static void draw(GtkWidget *knob, cairo_t *cr)
 	px = (w/2.0)-(self->title_extents.width/2 + self->title_extents.x_bearing);
 	py = (h/2.0 - (12.0+self->knob_radius))-(self->title_extents.height + self->title_extents.y_bearing);
 
-	cairo_move_to (cr, px,py);
+	if (self->divtitles) {
+		py -= tick_labels_font_size;
+	}
+
+	cairo_move_to (cr, px, py);
 	cairo_show_text (cr, self->label);
 
 	if (self->display) {
@@ -488,6 +499,11 @@ static void knob_size_request(GtkWidget *widget,GtkRequisition *requisition)
 	Knob *self = KNOB(widget);
 	requisition->width = self->knob_radius * 2 + 40;
 	requisition->height = self->knob_radius * 2 + 40;
+
+	if (self->divtitles) {
+		requisition->height += 2* 7.0;
+	}
+
 }
 
 
@@ -542,6 +558,13 @@ GSList *knob_change_division_labels(Knob*self,GSList*list)
 	
 
 	fprintf(stderr,"Have new division labels: %p\n",list);
+	gtk_widget_queue_draw(GTK_WIDGET(self));
+
 	return old;
 }
 
+void knob_set_formatter(Knob *self, gchar *(*formatter)(long value, void *), void*data)
+{
+	self->formatter = formatter;
+    self->formatter_data = data;
+}
