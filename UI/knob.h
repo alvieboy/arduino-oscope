@@ -32,12 +32,14 @@ struct _Knob
 	GtkObject *adj;
 	double rest_angle;
 	gchar *label;
-	gchar display[16]; // Text to display.
+	gchar *display; // Text (value) to display.
 	/* Computations we need */
 	cairo_text_extents_t title_extents;
 	cairo_text_extents_t value_extents;
 
 	long (*validator)(long value,struct _Knob *);
+	gchar *(*formatter)(long value, struct _Knob *);
+
 	unsigned divisions;
 	GSList *divtitles;
 	GSList *divtitles_extents;

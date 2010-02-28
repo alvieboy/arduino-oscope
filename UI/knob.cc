@@ -34,6 +34,13 @@ static guint signals[LAST_SIGNAL];
 
 G_DEFINE_TYPE (Knob, knob, GTK_TYPE_DRAWING_AREA);
 
+static gchar *knob_formatter(long value, Knob *self)
+{
+    gchar *ret = NULL;
+	asprintf(&ret,"%ld",value);
+	return ret;
+}
+
 static void knob_init (Knob *knob)
 {
 	// Defaults
@@ -45,7 +52,9 @@ static void knob_init (Knob *knob)
 	knob->divtitles_extents = NULL;
 	knob->knob_radius = 10.0;
 	knob->snap_to_divisions = FALSE;
+    knob->formatter = &knob_formatter;
 }
+
 
 void knob_set_value(Knob *self,double value)
 {
@@ -242,8 +251,7 @@ static void draw(GtkWidget *knob, cairo_t *cr)
 	}
 
 
-
-	snprintf(self->display,16,"%d",(int)GTK_ADJUSTMENT(self->adj)->value);
+	self->display = self->formatter((long)GTK_ADJUSTMENT(self->adj)->value,self);
 
 	compute_extents(knob, cr);
 
@@ -267,7 +275,10 @@ static void draw(GtkWidget *knob, cairo_t *cr)
 	cairo_move_to (cr, px,py);
 	cairo_show_text (cr, self->label);
 
-
+	if (self->display) {
+		g_free(self->display);
+		self->display=NULL;
+	}
 }
 
 #if 0
