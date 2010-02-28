@@ -494,10 +494,9 @@ int main(int argc,char **argv)
 	gtk_box_pack_start(GTK_BOX(hbox),knob_trigger,TRUE,TRUE,0);
 //    gtk_widget_set_size_request(knob_trigger,60,60);
 	g_signal_connect(G_OBJECT(knob_trigger),"value-changed",G_CALLBACK(&trigger_level_changed),NULL);
-
-
 	knob_set_formatter(KNOB(knob_trigger),&voltage_formatter,NULL);
 	knob_set_divisions(KNOB(knob_trigger),7);
+	knob_set_reset_value(KNOB(knob_trigger),0);
 
     voltage_changed();
 

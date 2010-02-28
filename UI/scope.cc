@@ -285,7 +285,7 @@ static void draw(GtkWidget *scope, cairo_t *cr)
 							CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
 
 	double tdiv = (double)self->numSamples*1000.0/10.0 / self->freq;
-	sprintf(text,"tDiv: %.02fms", tdiv / (double)self->zoom);
+	//sprintf(text,"tDiv: %.02fms", tdiv / (double)self->zoom);
 	cairo_font_extents(cr, &fe);
 	cairo_text_extents(cr, text, &te);
 
@@ -297,11 +297,13 @@ static void draw(GtkWidget *scope, cairo_t *cr)
 				 );
 	cairo_show_text(cr, text);
 
+    /*
 	if (self->channels>1 && !(self->flags&CAPTURED_FRAME_FLAG_SEQUENTIAL_CHANNEL)) {
 		sprintf(text,"fMax/chan: %.02fHz", self->freq/(2*self->channels));
 	} else {
 		sprintf(text,"fMax: %.02fHz", self->freq/2);
-	}
+		}
+        */
 	cairo_text_extents(cr, text, &te);
 
 	vtextpos -= (te.height + 4);
@@ -379,7 +381,7 @@ void scope_display_set_data(GtkWidget *scope, unsigned char *data, size_t size)
 		storeChannel = (d[0]>>2) & 0x03;
 	}
 
-	fprintf(stderr,"Data: channels %u(%u), flags 0x%02x, total size %u\n", self->channels, storeChannel,flags, size);
+	//fprintf(stderr,"Data: channels %u(%u), flags 0x%02x, total size %u\n", self->channels, storeChannel,flags, size);
 	unsigned int i;
 	d+=2; // Skip flags and channel info
 
@@ -458,7 +460,7 @@ static gboolean scope_display_expose(GtkWidget *scope, GdkEventExpose *event)
 	cairo_t *cr;
 	/* get a cairo_t */
 	cr = gdk_cairo_create (scope->window);
-    fprintf(stderr,"Expose %d %d\n",event->area.width, event->area.height);
+    //fprintf(stderr,"Expose %d %d\n",event->area.width, event->area.height);
 	cairo_rectangle (cr,
 					 event->area.x, event->area.y,
 					 event->area.width, event->area.height);
@@ -490,7 +492,7 @@ static gboolean scope_motion_event(GtkWidget *scope, GdkEventMotion      *event)
 
 	double correction = self->freq / self->numSamples;
 
-	printf("Freq: %f Hz (%f)\n", correction*x/2, self->freq/2);
+	//printf("Freq: %f Hz (%f)\n", correction*x/2, self->freq/2);
 	return TRUE;
 }
 

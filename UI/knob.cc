@@ -52,7 +52,8 @@ static void knob_init (Knob *knob)
 	knob->divtitles_extents = NULL;
 	knob->knob_radius = 10.0;
 	knob->snap_to_divisions = FALSE;
-    knob->formatter = &knob_formatter;
+	knob->formatter = &knob_formatter;
+	knob->reset_value = 0;
 }
 
 
@@ -193,13 +194,13 @@ static void draw(GtkWidget *knob, cairo_t *cr)
 	GSList *divtitle = self->divtitles;
 
 	if (NULL!=divtitle && self->divtitles_extents==NULL) {
-		fprintf(stderr,"Need to allocate extents\n");
+		//fprintf(stderr,"Need to allocate extents\n");
 
 		/* Compute extents */
 		GSList *iter;
 		for (iter=divtitle; NULL!=iter; iter=g_slist_next(iter)) {
 
-			fprintf(stderr,"Allocate extents for '%s'\n", (gchar*) iter->data);
+			//fprintf(stderr,"Allocate extents for '%s'\n", (gchar*) iter->data);
 			cairo_text_extents_t *extents = g_new(cairo_text_extents_t,1);
 
 			self->divtitles_extents = g_slist_append(self->divtitles_extents, extents);
@@ -207,7 +208,7 @@ static void draw(GtkWidget *knob, cairo_t *cr)
 			//cairo_set_source_rgb( cr, 0.2,0.2,0.2);
 			cairo_text_extents(cr, (gchar*)iter->data, extents);
 		}
-        fprintf(stderr,"Extents computed\n");
+        //fprintf(stderr,"Extents computed\n");
 	}
 
 	GSList *divtitle_extents = self->divtitles_extents;
@@ -295,14 +296,14 @@ static void draw(GtkWidget *knob, cairo_t *cr)
 #if 0
 static void knob_size_request(GtkWidget *widget, GtkRequisition *requisition)
 {
-	printf("Request %d %d\n",requisition->width,requisition->height);
+	//printf("Request %d %d\n",requisition->width,requisition->height);
 	gtk_widget_size_request(widget,requisition);
 
 }
 
 static void knob_size_allocate(GtkWidget *widget, GtkAllocation *allocation)
 {
-	printf("Allocate %d %d\n",allocation->width,allocation->height);
+	//printf("Allocate %d %d\n",allocation->width,allocation->height);
 }
 #endif
 
@@ -365,7 +366,7 @@ static gboolean knob_scroll_event(GtkWidget*knob,GdkEventScroll*event)
 
 		break;
 	default:
-		printf("???\n");
+		//printf("???\n");
 		return FALSE;
 	};
 
@@ -385,13 +386,13 @@ static void knob_set_value_by_vector(Knob *self,double dx, double dy)
 	if (angle<0)
 		angle+=2*G_PI;
 
-	printf("Angle: %f %f  = %f (rad %f, corrected %f)\n", dx, dy, 360.0*angle/(2*G_PI),angle,
+	/*printf("Angle: %f %f  = %f (rad %f, corrected %f)\n", dx, dy, 360.0*angle/(2*G_PI),angle,
 		   angle - self->rest_angle);
 
 	printf("Range %f -> %f %%\n",arange,(angle - self->rest_angle)/arange);
 
 	printf("Value: %f\n",adj->lower + (adj->upper-adj->lower) * (angle-self->rest_angle)/arange);
-
+    */
 	if (angle<self->rest_angle){
 		new_value = adj->lower;
 	} else if (angle > 2*G_PI-self->rest_angle) {
@@ -411,7 +412,7 @@ static void knob_set_value_by_vector(Knob *self,double dx, double dy)
 static gboolean knob_button_press_event(GtkWidget*knob,GdkEventButton*event)
 {
 	Knob *self = KNOB(knob);
-	printf("press!!! %f %f \n",event->x,event->y);
+	//printf("press!!! %f %f \n",event->x,event->y);
 
 	if (!GTK_WIDGET_HAS_FOCUS(knob))
 		gtk_widget_grab_focus (knob);
@@ -466,6 +467,10 @@ static gboolean knob_key_press_event(GtkWidget*knob,GdkEventKey*event)
 	case GDK_Page_Down:
 		diff = -1.0 * adj->page_increment;
 		break;
+	case GDK_R:
+	case GDK_r:
+        diff = self->reset_value - adj->value;
+        break;
 	default:
 		return FALSE;
 	}
@@ -483,14 +488,14 @@ static gboolean knob_key_press_event(GtkWidget*knob,GdkEventKey*event)
 
 static gboolean knob_focus_in_event(GtkWidget*knob,GdkEventFocus*event)
 {
-	printf("focusin %p!!!\n",knob);
+	//printf("focusin %p!!!\n",knob);
 	gtk_widget_queue_draw(knob);
 	return TRUE;
 }
 
 static gboolean knob_focus_out_event(GtkWidget*knob,GdkEventFocus*event)
 {
-	printf("focusout %p!!!\n",knob);
+	//printf("focusout %p!!!\n",knob);
 	gtk_widget_queue_draw(knob);
 	return TRUE;
 }
@@ -557,7 +562,7 @@ GSList *knob_change_division_labels(Knob*self,GSList*list)
 
 	
 
-	fprintf(stderr,"Have new division labels: %p\n",list);
+	//fprintf(stderr,"Have new division labels: %p\n",list);
 	gtk_widget_queue_draw(GTK_WIDGET(self));
 
 	return old;
@@ -567,4 +572,9 @@ void knob_set_formatter(Knob *self, gchar *(*formatter)(long value, void *), voi
 {
 	self->formatter = formatter;
     self->formatter_data = data;
+}
+
+void knob_set_reset_value(Knob *self, long value)
+{
+	self->reset_value = value;
 }

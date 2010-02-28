@@ -48,6 +48,7 @@ struct _Knob
 
 	double knob_radius;
 	gboolean snap_to_divisions;
+	long reset_value;
 };
 
 
@@ -79,4 +80,6 @@ void knob_set_divisions(Knob*self, long divisions);
 long knob_set_divisions(Knob*self);
 GSList *knob_change_division_labels(Knob*self,GSList*list);
 void knob_set_formatter(Knob *self, gchar *(*formatter)(long value, void *), void*data);
+void knob_set_reset_value(Knob *self, long value);
+
 #endif
