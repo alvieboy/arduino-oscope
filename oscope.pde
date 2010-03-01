@@ -82,6 +82,12 @@ static unsigned char maxChannels=0;
 
 static uint8_t capturedFrameFlags;
 
+/* Scratchpad. Use at will. */
+typedef struct {
+	unsigned char data[64];
+} scratchpad_t;
+
+static scratchpad_t scratchpad;
 static parameters_t params;
 
 #define BYTE_FLAG_TRIGGERED       (1<<7) /* Signal is triggered */
@@ -201,7 +207,8 @@ void setup()
 	TCCR2B = (TCCR2B & 0b11111000) | 0x02; // 62.5KHz
 	//OCR0A = 10;
    // OCR1A = 20;
-   // OCR2A = 30;
+	// OCR2A = 30;
+	memset(&scratchpad,0,sizeof(scratchpad_t));
 
 	analogWrite(pwmPin,127);
 	pinMode(8,OUTPUT);
@@ -430,6 +437,16 @@ END_FUNCTION
 
 DECLARE_FUNCTION(COMMAND_GET_CONSTANTS)(void) {
 	SerPro::send(COMMAND_CONSTANTS_REPLY,freq, avcc, vref);
+}
+END_FUNCTION
+
+DECLARE_FUNCTION(COMMAND_READ_SCRATCHPAD)(void) {
+	SerPro::send(COMMAND_SCRATCHPAD_REPLY, &scratchpad);
+}
+END_FUNCTION
+
+DECLARE_FUNCTION(COMMAND_WRITE_SCRATCHPAD)(const scratchpad_t *s) {
+    memcpy(&scratchpad, s, sizeof(scratchpad_t));
 }
 END_FUNCTION
 
