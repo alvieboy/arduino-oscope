@@ -48,12 +48,13 @@ GtkWidget *shot_button;
 GtkWidget *freeze_button;
 GtkStyle *style;
 GtkWidget *sequential_check;
+GtkWidget *timebase_knob;
 
 #ifdef HAVE_DFT
 GtkWidget *isdft;
 #endif
 
-unsigned short numSamples;
+unsigned short numSamples = 962;
 static gboolean frozen=FALSE;
 static gboolean do_apply=TRUE;
 
@@ -77,6 +78,37 @@ void mysetdata(unsigned char *data,size_t size)
 void mydigsetdata(unsigned char *data,size_t size)
 {
 	//digital_scope_display_set_data(digital_image,data,size);
+}
+
+static void timebase_update()
+{
+	GSList *newlist = NULL;
+	gchar *ret;
+
+	int value;
+	for (value=0; value<=4; value++) {
+		double fsample = get_sample_frequency(arduino_freq, pow(2,value+4));
+		double tdiv = (double)numSamples*100.0 / fsample;
+		asprintf(&ret,"%.02f ms", tdiv);
+		newlist = g_slist_append(newlist, ret);
+	}
+
+	GSList *old = knob_change_division_labels(KNOB(timebase_knob),newlist);
+
+	if (old)
+		g_slist_free(old);
+}
+
+static gchar *timebase_formatter(long value, void *data)
+{
+	gchar *ret = NULL;
+
+	// TODO: fetch correct voltage from data
+	double fsample = get_sample_frequency(arduino_freq, pow(2,value+4));
+	double tdiv = (double)numSamples*100.0 / fsample;
+	fprintf(stderr,"Fsample %f %f %u\n",fsample,tdiv,numSamples);
+	asprintf(&ret,"%.02f ms", tdiv);
+	return ret;
 }
 
 void scope_got_constants(uint32_t freq,uint16_t avcc,uint16_t vref)
@@ -485,8 +517,11 @@ int main(int argc,char **argv)
 
 	// TESTING
 
+	GtkWidget *mainhbox = gtk_hbox_new(FALSE,4);
+    GtkWidget *trigtimevbox = gtk_vbox_new(FALSE,4);
+
 	GtkWidget *frame = gtk_frame_new("Trigger");
-	gtk_box_pack_start(GTK_BOX(vbox),frame,TRUE,TRUE,0);
+	gtk_box_pack_start(GTK_BOX(trigtimevbox),frame,TRUE,TRUE,0);
 
 	hbox = gtk_hbox_new(FALSE,4);
 
@@ -498,8 +533,6 @@ int main(int argc,char **argv)
 	knob_set_divisions(KNOB(knob_trigger),7);
 	knob_set_reset_value(KNOB(knob_trigger),0);
 
-    voltage_changed();
-
 	knob_holdoff= knob_new_with_range("HOLD",0,255,1,10,0);
 	gtk_box_pack_start(GTK_BOX(hbox),knob_holdoff,TRUE,TRUE,0);
 //	gtk_widget_set_size_request(knob_holdoff,60,60);
@@ -507,14 +540,26 @@ int main(int argc,char **argv)
 
 	gtk_container_add(GTK_CONTAINER(frame), hbox);
 
+	GtkWidget *chvbox = gtk_vbox_new(FALSE,4);
 
 	hbox = gtk_hbox_new(FALSE,4);
 
 	gtk_box_pack_start(GTK_BOX(hbox),create_channel("Channel A",scope_display_get_config_for_channel(image,0)),TRUE,TRUE,0);
 	gtk_box_pack_start(GTK_BOX(hbox),create_channel("Channel B",scope_display_get_config_for_channel(image,1)),TRUE,TRUE,0);
+
+	gtk_box_pack_start(GTK_BOX(chvbox),hbox,TRUE,TRUE,0);
+
+	hbox = gtk_hbox_new(FALSE,4);
+
 	gtk_box_pack_start(GTK_BOX(hbox),create_channel("Channel C",scope_display_get_config_for_channel(image,2)),TRUE,TRUE,0);
 	gtk_box_pack_start(GTK_BOX(hbox),create_channel("Channel D",scope_display_get_config_for_channel(image,3)),TRUE,TRUE,0);
-	gtk_box_pack_start(GTK_BOX(vbox),hbox,TRUE,TRUE,0);
+
+	gtk_box_pack_start(GTK_BOX(chvbox),hbox,TRUE,TRUE,0);
+
+	gtk_box_pack_start(GTK_BOX(mainhbox),chvbox,TRUE,TRUE,0);
+	gtk_box_pack_start(GTK_BOX(mainhbox),trigtimevbox,TRUE,TRUE,0);
+
+	gtk_box_pack_start(GTK_BOX(vbox),mainhbox,TRUE,TRUE,0);
 
 
 /*	hbox = gtk_hbox_new(FALSE,4);
@@ -524,6 +569,7 @@ int main(int argc,char **argv)
 	gtk_box_pack_start(GTK_BOX(hbox),scale_holdoff,TRUE,TRUE,0);
 	g_signal_connect(G_OBJECT(scale_holdoff),"value-changed",G_CALLBACK(&holdoff_level_changed),NULL);
   */
+    /*
 	hbox = gtk_hbox_new(FALSE,4);
 	gtk_box_pack_start(GTK_BOX(vbox),hbox,TRUE,TRUE,0);
 	gtk_box_pack_start(GTK_BOX(hbox),gtk_label_new("Prescaler:"),TRUE,TRUE,0);
@@ -536,8 +582,16 @@ int main(int argc,char **argv)
 	gtk_combo_box_append_text(GTK_COMBO_BOX(combo_prescaler),"32");
 	gtk_combo_box_append_text(GTK_COMBO_BOX(combo_prescaler),"16");
 	gtk_combo_box_append_text(GTK_COMBO_BOX(combo_prescaler),"8");
-	gtk_combo_box_append_text(GTK_COMBO_BOX(combo_prescaler),"4");
-	gtk_combo_box_append_text(GTK_COMBO_BOX(combo_prescaler),"2");
+    */
+	//gtk_combo_box_append_text(GTK_COMBO_BOX(combo_prescaler),"4");
+	//gtk_combo_box_append_text(GTK_COMBO_BOX(combo_prescaler),"2");
+
+	timebase_knob = knob_new_with_range("TIME/DIV",0,4,1,1,0);
+	knob_set_divisions(KNOB(timebase_knob),5);
+	gtk_box_pack_start(GTK_BOX(trigtimevbox),timebase_knob,TRUE,TRUE,0);
+	knob_set_radius(KNOB(timebase_knob),20.0);
+	knob_set_formatter(KNOB(timebase_knob),&timebase_formatter,NULL);
+    timebase_update();
 
 	hbox = gtk_hbox_new(FALSE,4);
 	gtk_box_pack_start(GTK_BOX(vbox),hbox,TRUE,TRUE,0);
@@ -598,6 +652,8 @@ int main(int argc,char **argv)
 	GtkWidget *tog = gtk_check_button_new_with_label("Invert trigger");
 	gtk_box_pack_start(GTK_BOX(hbox),tog,TRUE,TRUE,0);
 	g_signal_connect(G_OBJECT(tog),"toggled",G_CALLBACK(&trigger_toggle_changed),NULL);
+
+	voltage_changed();
 
 	gtk_widget_show_all(window);
 

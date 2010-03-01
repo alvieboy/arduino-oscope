@@ -499,16 +499,16 @@ static gboolean knob_focus_out_event(GtkWidget*knob,GdkEventFocus*event)
 	gtk_widget_queue_draw(knob);
 	return TRUE;
 }
+
 static void knob_size_request(GtkWidget *widget,GtkRequisition *requisition)
 {
 	Knob *self = KNOB(widget);
-	requisition->width = self->knob_radius * 2 + 40;
-	requisition->height = self->knob_radius * 2 + 40;
+	requisition->width = self->knob_radius * 2 + 43;
+	requisition->height = self->knob_radius * 2 + 43;
 
 	if (self->divtitles) {
 		requisition->height += 2* 7.0;
 	}
-
 }
 
 
@@ -568,6 +568,11 @@ GSList *knob_change_division_labels(Knob*self,GSList*list)
 	return old;
 }
 
+void knob_set_radius(Knob *self, double radius)
+{
+	self->knob_radius=radius;
+	gtk_widget_queue_draw(GTK_WIDGET(self));
+}
 void knob_set_formatter(Knob *self, gchar *(*formatter)(long value, void *), void*data)
 {
 	self->formatter = formatter;
