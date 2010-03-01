@@ -65,8 +65,8 @@ static void draw_background(cairo_t *cr,const GtkAllocation *allocation)
 
 	//	cairo_set_source_rgb (cr, 0, 0, 0);
 	cairo_rectangle(cr,
-					allocation->x,
-					allocation->y,
+					0,//allocation->x,
+					0,//allocation->y,
 					allocation->width,
 					allocation->height);
 	cairo_fill(cr);
@@ -126,9 +126,9 @@ static void draw(GtkWidget *scope, cairo_t *cr)
 	int lx=self->scope_xpos;
 	int ly=self->scope_ypos+self->analog_height;
 	/* Draw trigger level */
-
-	cairo_move_to(cr,lx,ly - self->tlevel);
-	cairo_line_to(cr,lx + self->numSamples,ly - self->tlevel);
+    double clev = ( self->chancfg[0].ypos + self->tlevel * self->chancfg[0].gain);
+	cairo_move_to(cr,lx,ly - clev );
+	cairo_line_to(cr,lx + self->numSamples,ly - clev);
 	/*	cairo_arc (cr, x, y, radius, 0, 2 * M_PI);
 	 */
 	cairo_stroke(cr);

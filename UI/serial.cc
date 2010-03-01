@@ -203,7 +203,7 @@ void handleEvent<LINK_UP>() {
 	state = GETVERSION;
 }
 
-
+/*
 template<>
 void Dumper<1>(const unsigned char *buffer,size_t size)
 {
@@ -214,7 +214,7 @@ void Dumper<1>(const unsigned char *buffer,size_t size)
 	}
 	fprintf(stderr,"\n");
 }
-
+*/
 
 /*
 DECLARE_FUNCTION(COMMAND_DIG_BUFFER_SEG)(const SerPro::RawBuffer &b) {

@@ -39,7 +39,7 @@ cairo_t *cr;
 
 GtkWidget *knob_trigger;
 GtkWidget *knob_holdoff;
-GtkWidget *combo_prescaler;
+//GtkWidget *combo_prescaler;
 GtkWidget *combo_vref;
 GtkWidget *set_chan[4];
 //GtkWidget *combo_channels;
@@ -111,6 +111,17 @@ static gchar *timebase_formatter(long value, void *data)
 	return ret;
 }
 
+static gchar *channel_voltage_formatter(long value, void *data)
+{
+	gchar *ret = NULL;
+
+	// TODO: fetch correct voltage from data
+
+	asprintf(&ret,"%.02f V", 100.0/((double)value*4) * ( (double)arduino_current_vref/1000.0));
+	return ret;
+}
+
+
 void scope_got_constants(uint32_t freq,uint16_t avcc,uint16_t vref)
 {
 
@@ -149,7 +160,8 @@ void scope_got_parameters(unsigned char triggerLevel,
 		gtk_combo_box_set_active(GTK_COMBO_BOX(combo_vref),2);
 	}
 
-	gtk_combo_box_set_active(GTK_COMBO_BOX(combo_prescaler),7-prescale);
+	//gtk_combo_box_set_active(GTK_COMBO_BOX(combo_prescaler),7-prescale);
+	knob_set_value(KNOB(timebase_knob),prescale-3);
 
 	int i = (num_channels)&0x3;
 	fprintf(stderr,"Activate %d channels\n", i+1);
@@ -169,7 +181,7 @@ void scope_got_parameters(unsigned char triggerLevel,
 }
 
 
-gboolean trigger_level_changed(GtkWidget *widget)
+static gboolean trigger_level_changed(GtkWidget *widget)
 {
 	int l = (int)knob_get_value(KNOB(widget));
 	if (do_apply)
@@ -179,7 +191,7 @@ gboolean trigger_level_changed(GtkWidget *widget)
 	return TRUE;
 }
 
-gboolean holdoff_level_changed(GtkWidget *widget)
+static gboolean holdoff_level_changed(GtkWidget *widget)
 {
 	int l = (int)knob_get_value(KNOB(widget));
 	if (do_apply)
@@ -188,7 +200,7 @@ gboolean holdoff_level_changed(GtkWidget *widget)
 	return TRUE;
 }
 
-gboolean zoom_changed(GtkWidget *widget)
+static gboolean zoom_changed(GtkWidget *widget)
 {
 	int l = (int)gtk_range_get_value(GTK_RANGE(widget));
 	scope_display_set_zoom(image,l);
@@ -196,33 +208,26 @@ gboolean zoom_changed(GtkWidget *widget)
 	return TRUE;
 }
 
-gboolean prescaler_changed(GtkWidget *widget)
+static gboolean prescaler_changed(GtkWidget *widget)
 {
-	gchar *c = gtk_combo_box_get_active_text(GTK_COMBO_BOX(widget));
-	if(!c)
-        return FALSE;
-	int base = (int)log2((double)atoi(c));
-	printf("Prescale: 0x%x\n",base);
+	//gchar *c = gtk_combo_box_get_active_text(GTK_COMBO_BOX(widget));
+	long index = knob_get_value(KNOB(widget));
+
+	long base = index+3;
+	fprintf(stderr,"Set prescaler %u (%u)\n",base, (unsigned)pow(2,base));
 	if (do_apply)
 		serial_set_prescaler(base);
 
-	double fsample = get_sample_frequency(arduino_freq, atol(c));
-	printf("Fsample: %F Hz\n", fsample);
-
-	// 512 samples.
-
-	// Ts = 1/freq.
-	// Full scope time: 512*1/freq.
-	// Each slot: 512/freq/10
-    // In ms * 1000.0
-
+	double fsample = get_sample_frequency(arduino_freq, pow(2,base));
+   /* printf("Fsample: %F Hz\n", fsample);
 	printf("Tdiv: %F ms\n", (double)numSamples*100.0 / fsample );
 	printf("Test with freq %F Hz\n", fsample/((double)numSamples/10.0));
+    */
 	scope_display_set_sample_freq(image, fsample);
 	return TRUE;
 }
 
-void voltage_changed()
+static void voltage_changed()
 {
 	GSList *list = NULL;
 	GSList *oldlist;
@@ -240,7 +245,7 @@ void voltage_changed()
 
 }
 
-gboolean vref_changed(GtkWidget *widget)
+static gboolean vref_changed(GtkWidget *widget)
 {
 	unsigned char base;
 	gchar *c = gtk_combo_box_get_active_text(GTK_COMBO_BOX(widget));
@@ -264,14 +269,14 @@ gboolean vref_changed(GtkWidget *widget)
 	return TRUE;
 }
 
-void trigger_toggle_changed(GtkWidget *widget)
+static void trigger_toggle_changed(GtkWidget *widget)
 {
 	gboolean active = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
 	if (do_apply)
 		serial_set_trigger_invert(active);
 }
 
-void channels_changed(GtkWidget *widget)
+static void channels_changed(GtkWidget *widget)
 {
 	long v = knob_get_value(KNOB(widget));
 	//char *active_s = gtk_combo_box_get_active_text(GTK_COMBO_BOX(widget));
@@ -281,7 +286,7 @@ void channels_changed(GtkWidget *widget)
 		serial_set_channels(v);
 }
 
-void cancel_trigger(GtkDialog *widget)
+static void cancel_trigger(GtkDialog *widget)
 {
 	gtk_widget_destroy(GTK_WIDGET(widget));
 }
@@ -375,7 +380,11 @@ GtkWidget *create_channel(const gchar *name, struct channelConfig *chanConfig)
 //	gtk_widget_set_size_request(pos,60,60);
 	g_signal_connect(G_OBJECT(pos),"value-changed",G_CALLBACK(&channel_changed_ypos),chanConfig);
 
-	pos=knob_new_with_range("GAIN",0,200,5,25,100);
+	pos=knob_new_with_range("V/DIV",0,200,5,25,100);
+
+	knob_set_formatter(KNOB(pos),&channel_voltage_formatter,NULL);
+	knob_set_reset_value(KNOB(pos),100);
+
 	gtk_box_pack_start(GTK_BOX(hbox),pos,TRUE,TRUE,0);
 //	gtk_widget_set_size_request(pos,60,60);
 	g_signal_connect(G_OBJECT(pos),"value-changed",G_CALLBACK(&channel_changed_gain),chanConfig);
@@ -423,6 +432,7 @@ static gchar *voltage_formatter(long value, void *data)
 	asprintf(&ret,"%.02f V", (double)value/255.0 * (double)arduino_current_vref/1000.0);
 	return ret;
 }
+
 
 int main(int argc,char **argv)
 {
@@ -591,7 +601,9 @@ int main(int argc,char **argv)
 	gtk_box_pack_start(GTK_BOX(trigtimevbox),timebase_knob,TRUE,TRUE,0);
 	knob_set_radius(KNOB(timebase_knob),20.0);
 	knob_set_formatter(KNOB(timebase_knob),&timebase_formatter,NULL);
-    timebase_update();
+	g_signal_connect(G_OBJECT(timebase_knob),"value-changed",G_CALLBACK(&prescaler_changed),NULL);
+
+	timebase_update();
 
 	hbox = gtk_hbox_new(FALSE,4);
 	gtk_box_pack_start(GTK_BOX(vbox),hbox,TRUE,TRUE,0);
