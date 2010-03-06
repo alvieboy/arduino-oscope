@@ -297,19 +297,20 @@ static void draw(GtkWidget *scope, cairo_t *cr)
 				 );
 	cairo_show_text(cr, text);
 
-    /*
+
 	if (self->channels>1 && !(self->flags&CAPTURED_FRAME_FLAG_SEQUENTIAL_CHANNEL)) {
 		sprintf(text,"fMax/chan: %.02fHz", self->freq/(2*self->channels));
 	} else {
 		sprintf(text,"fMax: %.02fHz", self->freq/2);
-		}
-        */
+	}
+
+	fprintf(stderr,"%s\n",text);
 	cairo_text_extents(cr, text, &te);
 
 	vtextpos -= (te.height + 4);
 
 	cairo_move_to(cr,
-				  scope->allocation.x + scope->allocation.width - te.width - 10,
+				  /*scope->allocation.x +*/ scope->allocation.width - te.width - 10,
 				  vtextpos
 				 );
 	cairo_show_text(cr, text);
@@ -349,9 +350,12 @@ void scope_display_set_samples(GtkWidget *scope, unsigned short numSamples)
 
 	self->dbuf_output = (double*)g_malloc(numSamples*sizeof(double));
 
-	self->plan = fftw_plan_r2r_1d(numSamples, self->dbuf_real, self->dbuf_output,
-								   FFTW_R2HC, FFTW_FORWARD);
-
+	self->plan = fftw_plan_r2r_1d(numSamples, self->dbuf_real,
+				      self->dbuf_output,
+				      FFTW_R2HC, /*FFTW_FORWARD*/FFTW_ESTIMATE);
+	if (NULL==self->plan) {
+            fprintf(stderr,"Cannot create fftw plan!?\n");
+	}
 #endif
 
 
@@ -406,10 +410,13 @@ void scope_display_set_data(GtkWidget *scope, unsigned char *data, size_t size)
 		d++;
 	}
 
-	memset((void *)self->dbuf_output, 0, self->numSamples * sizeof(double));
+	if ( self->mode == MODE_DFT ) {
+	    memset((void *)self->dbuf_output, 0, self->numSamples * sizeof(double));
 
-
-	fftw_execute(self->plan);
+	    if (self->plan) {
+		fftw_execute(self->plan);
+	    }
+	}
 #endif
 	self->flags = flags;
 
