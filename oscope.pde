@@ -28,10 +28,10 @@
 
 /* Baud rate, for communication with PC */
 #define BAUD_RATE 115200
+
 static const uint32_t freq = 16000000;
 static const uint16_t avcc = 5000; // 5v
 static const uint16_t vref = 5000; // 5v
-#undef FASTISR
 
 struct SerialWrapper
 {
@@ -224,7 +224,8 @@ static void send_parameters()
 }
 
 
-void loop() {
+void loop()
+{
 	int bIn;
 	if (Serial.available()>0) {
 		bIn =  Serial.read();
@@ -238,14 +239,15 @@ void loop() {
 		uint8_t ch = maxChannels;
 
 		if (params.flags & FLAG_CHANNEL_SEQUENTIAL) {
-            ch |= currentChannel<<2;
+			ch |= currentChannel<<2;
 		}
 
 		SerPro::send(COMMAND_BUFFER_SEG, ch,
-					 capturedFrameFlags,
-					 VariableBuffer(dataBuffer, params.numSamples) );
+			     capturedFrameFlags,
+			     VariableBuffer(dataBuffer, params.numSamples) );
 		cli();
 		maxChannels = params.channels;
+
 		if (params.flags & FLAG_CHANNEL_SEQUENTIAL) {
 			if (currentChannel<maxChannels)
 				currentChannel++;
@@ -258,10 +260,8 @@ void loop() {
 		capturedFrameFlags=0;
 		sei();
 		start_adc();
-	} 
+	}
 }
-
-#define TRIGGER_NOISE_LEVEL 1
 
 uint8_t last = 0;
 uint8_t holdoff;
@@ -311,7 +311,7 @@ ISR(ADC_vect)
 	}
 
 	if (flags & BYTE_FLAG_TRIGGERED) {
-		is_trigger:
+	is_trigger:
 
 		if (flags & BYTE_FLAG_STARTCONVERSION) {
 			flags |= BYTE_FLAG_STOREDATA;
@@ -322,7 +322,7 @@ ISR(ADC_vect)
 		do_store:
 #ifdef TEST_CHANNELS
 			*storePtr++ = 10+((admux_dly&0x7)<<4);
-            //*storePtr++ = currentChannel<<6;
+			//*storePtr++ = currentChannel<<6;
 #else
 			*storePtr++ = sampled;
 #endif
