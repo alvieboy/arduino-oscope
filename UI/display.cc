@@ -18,7 +18,6 @@
 
 #include <gtk/gtk.h>
 #include "scope.h"
-#include "digitalscope.h"
 #include "serial.h"
 #include <math.h>
 #include <stdlib.h>

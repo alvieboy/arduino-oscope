@@ -21,15 +21,15 @@
 
 #include <gtk/gtk.h>
 #include "channel.h"
+#include "config.h"
 
 #ifdef HAVE_DFT
 #include <fftw3.h>
+#endif
 
 typedef enum {
 	MODE_NORMAL,MODE_DFT
 } scope_mode_t;
-
-#endif
 
 
 
@@ -47,10 +47,11 @@ struct _ScopeDisplay
 	unsigned char channels;
 	gboolean xy;
 	double freq;
+	scope_mode_t mode;
 #ifdef HAVE_DFT
 	double *dbuf_real;
 	double *dbuf_output;
-	scope_mode_t mode;
+
 	fftw_plan plan;
 #endif
 	struct channelConfig chancfg[4];

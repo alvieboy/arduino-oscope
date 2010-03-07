@@ -1,0 +1,16 @@
+all: oscope
+
+CXX=g++-4.3
+
+CXXFLAGS=@gtk_CFLAGS@ @cairo_CFLAGS@ @fftw3_CFLAGS@
+
+LIBS=@gtk_LIBS@ @cairo_LIBS@ @fftw3_LIBS@
+
+OBJECTS= display.o scope.o serial.o knob.o ../crc16.o
+
+oscope: $(OBJECTS)
+	$(CXX) -o oscope $+ $(LIBS)
+
+clean:
+	rm -f *.o oscope $(OBJECTS) 
+	
