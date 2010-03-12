@@ -1,5 +1,8 @@
 /* config.h.in.  Generated from configure.in by autoheader.  */
 
+/* Define this if you have Cairo PNG library */
+#undef HAVE_CAIRO_PNG
+
 /* Define this if you have FFTW3 library */
 #undef HAVE_DFT
 

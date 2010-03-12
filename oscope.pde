@@ -440,6 +440,12 @@ DECLARE_FUNCTION(COMMAND_GET_CONSTANTS)(void) {
 }
 END_FUNCTION
 
+/* Scratchpad. Use at will. */
+typedef struct {
+	unsigned char data[64];
+} scratchpad_t;
+static scratchpad_t scratchpad;
+
 DECLARE_FUNCTION(COMMAND_READ_SCRATCHPAD)(void) {
 	SerPro::send(COMMAND_SCRATCHPAD_REPLY, &scratchpad);
 }

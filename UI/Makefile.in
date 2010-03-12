@@ -2,9 +2,9 @@ all: oscope
 
 CXX=g++-4.3
 
-CXXFLAGS=@gtk_CFLAGS@ @cairo_CFLAGS@ @fftw3_CFLAGS@
+CXXFLAGS=@gtk_CFLAGS@ @cairo_CFLAGS@ @fftw3_CFLAGS@ @cairo_png_CFLAGS@
 
-LIBS=@gtk_LIBS@ @cairo_LIBS@ @fftw3_LIBS@
+LIBS=@gtk_LIBS@ @cairo_LIBS@ @fftw3_LIBS@ @cairo_png_LIBS@
 
 OBJECTS= display.o scope.o serial.o knob.o ../crc16.o
 

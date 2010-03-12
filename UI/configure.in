@@ -11,4 +11,12 @@ fftw3_CFLAGS=
 fftw3_LIBS=
 ])
 
+
+PKG_CHECK_MODULES(cairo_png,cairo-png,AC_DEFINE(HAVE_CAIRO_PNG,[],[Define this if you have Cairo PNG library]),
+[AC_MSG_RESULT([No cairo-png found, disabling PNG snapshot support])
+cairo_png_CFLAGS=
+cairo_png_LIBS=
+])
+
+
 AC_OUTPUT(Makefile)

@@ -555,6 +555,8 @@ PACKAGE_URL=
 
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
+cairo_png_LIBS
+cairo_png_CFLAGS
 fftw3_LIBS
 fftw3_CFLAGS
 cairo_LIBS
@@ -626,7 +628,9 @@ gtk_LIBS
 cairo_CFLAGS
 cairo_LIBS
 fftw3_CFLAGS
-fftw3_LIBS'
+fftw3_LIBS
+cairo_png_CFLAGS
+cairo_png_LIBS'
 
 
 # Initialize some variables set by options.
@@ -1248,6 +1252,10 @@ Some influential environment variables:
   fftw3_CFLAGS
               C compiler flags for fftw3, overriding pkg-config
   fftw3_LIBS  linker flags for fftw3, overriding pkg-config
+  cairo_png_CFLAGS
+              C compiler flags for cairo_png, overriding pkg-config
+  cairo_png_LIBS
+              linker flags for cairo_png, overriding pkg-config
 
 Use these variables to override the choices made by `configure' or to help
 it to find libraries and programs with nonstandard names/locations.
@@ -2586,6 +2594,90 @@ $as_echo "yes" >&6; }
 $as_echo "#define HAVE_DFT /**/" >>confdefs.h
 
 fi
+
+
+
+pkg_failed=no
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for cairo_png" >&5
+$as_echo_n "checking for cairo_png... " >&6; }
+
+if test -n "$PKG_CONFIG"; then
+    if test -n "$cairo_png_CFLAGS"; then
+        pkg_cv_cairo_png_CFLAGS="$cairo_png_CFLAGS"
+    else
+        if test -n "$PKG_CONFIG" && \
+    { { $as_echo "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"cairo-png\""; } >&5
+  ($PKG_CONFIG --exists --print-errors "cairo-png") 2>&5
+  ac_status=$?
+  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }; then
+  pkg_cv_cairo_png_CFLAGS=`$PKG_CONFIG --cflags "cairo-png" 2>/dev/null`
+else
+  pkg_failed=yes
+fi
+    fi
+else
+	pkg_failed=untried
+fi
+if test -n "$PKG_CONFIG"; then
+    if test -n "$cairo_png_LIBS"; then
+        pkg_cv_cairo_png_LIBS="$cairo_png_LIBS"
+    else
+        if test -n "$PKG_CONFIG" && \
+    { { $as_echo "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"cairo-png\""; } >&5
+  ($PKG_CONFIG --exists --print-errors "cairo-png") 2>&5
+  ac_status=$?
+  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }; then
+  pkg_cv_cairo_png_LIBS=`$PKG_CONFIG --libs "cairo-png" 2>/dev/null`
+else
+  pkg_failed=yes
+fi
+    fi
+else
+	pkg_failed=untried
+fi
+
+
+
+if test $pkg_failed = yes; then
+
+if $PKG_CONFIG --atleast-pkgconfig-version 0.20; then
+        _pkg_short_errors_supported=yes
+else
+        _pkg_short_errors_supported=no
+fi
+        if test $_pkg_short_errors_supported = yes; then
+	        cairo_png_PKG_ERRORS=`$PKG_CONFIG --short-errors --errors-to-stdout --print-errors "cairo-png"`
+        else
+	        cairo_png_PKG_ERRORS=`$PKG_CONFIG --errors-to-stdout --print-errors "cairo-png"`
+        fi
+	# Put the nasty error message in config.log where it belongs
+	echo "$cairo_png_PKG_ERRORS" >&5
+
+	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+                { $as_echo "$as_me:${as_lineno-$LINENO}: result: No cairo-png found, disabling PNG snapshot support" >&5
+$as_echo "No cairo-png found, disabling PNG snapshot support" >&6; }
+cairo_png_CFLAGS=
+cairo_png_LIBS=
+
+elif test $pkg_failed = untried; then
+	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: No cairo-png found, disabling PNG snapshot support" >&5
+$as_echo "No cairo-png found, disabling PNG snapshot support" >&6; }
+cairo_png_CFLAGS=
+cairo_png_LIBS=
+
+else
+	cairo_png_CFLAGS=$pkg_cv_cairo_png_CFLAGS
+	cairo_png_LIBS=$pkg_cv_cairo_png_LIBS
+        { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+
+$as_echo "#define HAVE_CAIRO_PNG /**/" >>confdefs.h
+
+fi
+
 
 ac_config_files="$ac_config_files Makefile"
 

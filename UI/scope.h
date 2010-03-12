@@ -58,7 +58,9 @@ struct _ScopeDisplay
 	unsigned analog_height;
 	unsigned border;
 	int flags;
-
+#ifdef HAVE_CAIRO_PNG
+        const char *request_snapshot;
+#endif
 	/* Cached values. */
     int scope_xpos,scope_ypos;
 };
