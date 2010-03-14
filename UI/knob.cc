@@ -437,11 +437,11 @@ static gboolean knob_key_press_event(GtkWidget*knob,GdkEventKey*event)
 	switch (event->keyval) {
 	case GDK_KP_Up:
 	case GDK_Up:
-		diff = 5.0*adj->step_increment;
+		diff = adj->step_increment;
 		break;
 	case GDK_KP_Down:
 	case GDK_Down:
-		diff = -5.0*adj->step_increment;
+		diff = -1.0*adj->step_increment;
 		break;
 	case GDK_KP_Left:
 	case GDK_Left:
