@@ -59,10 +59,10 @@ struct _ScopeDisplay
 	unsigned border;
 	int flags;
 #ifdef HAVE_CAIRO_PNG
-        const char *request_snapshot;
+        bool request_snapshot;
 #endif
 	/* Cached values. */
-    int scope_xpos,scope_ypos;
+	int scope_xpos,scope_ypos;
 };
 
 struct _ScopeDisplayClass

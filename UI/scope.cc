@@ -462,11 +462,19 @@ void scope_display_set_channel_config(GtkWidget *scope,
 	gtk_widget_queue_draw(scope);
 }
 
+static gchar *next_screenshot_filename()
+{
+    return g_strdup("screenshot.png");
+}
+
 static gboolean scope_display_expose(GtkWidget *scope, GdkEventExpose *event)
 {
         ScopeDisplay *d = SCOPE_DISPLAY(scope);
 	cairo_t *cr;
-	static int once=0;
+#ifdef HAVE_CAIRO_PNG
+	cairo_surface_t *surface;
+	char *output_png_filename;
+#endif
 
 	/* get a cairo_t */
 	cr = gdk_cairo_create (scope->window);
@@ -480,26 +488,21 @@ static gboolean scope_display_expose(GtkWidget *scope, GdkEventExpose *event)
 
 	cairo_destroy (cr);
 
-	if (once==0)
-	{
-		once=1;
-                d->request_snapshot="a";
-	}
-
 #ifdef HAVE_CAIRO_PNG
 	if (d->request_snapshot) {
 	    // Redraw
-	    cairo_surface_t *surface;
 	    surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32,
 						 scope->allocation.width,
 						 scope->allocation.height);
 	    cr = cairo_create(surface);
 	    draw (scope, cr);
-	    cairo_surface_write_to_png(surface,"shot.png");
+            output_png_filename = next_screenshot_filename();
+	    cairo_surface_write_to_png(surface,output_png_filename);
+	    g_free(output_png_filename);
             cairo_surface_destroy(surface);
 	    cairo_destroy (cr);
 
-	    d->request_snapshot = NULL;
+	    d->request_snapshot = false;
 	}
 #endif
 	return FALSE;
