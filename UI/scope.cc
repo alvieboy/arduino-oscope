@@ -392,7 +392,6 @@ void scope_display_set_data(GtkWidget *scope, unsigned char *data, size_t size)
 		storeChannel = (d[0]>>2) & 0x03;
 	}
 
-	//fprintf(stderr,"Data: channels %u(%u), flags 0x%02x, total size %u\n", self->channels, storeChannel,flags, size);
 	unsigned int i;
 	d+=2; // Skip flags and channel info
 
@@ -454,8 +453,6 @@ void scope_set_mode(GtkWidget*scope, scope_mode_t mode)
 	ScopeDisplay *self = SCOPE_DISPLAY(scope);
 
 	self->mode=mode;
-	//gtk_widget_queue_draw(scope);
-
 }
 void scope_display_set_channel_config(GtkWidget *scope,
 									  int channel,
@@ -506,9 +503,8 @@ static gboolean scope_display_expose(GtkWidget *scope, GdkEventExpose *event)
         ScopeDisplay *d = SCOPE_DISPLAY(scope);
 	cairo_t *cr;
 
-	/* get a cairo_t */
 	cr = gdk_cairo_create (scope->window);
-    //fprintf(stderr,"Expose %d %d\n",event->area.width, event->area.height);
+
 	cairo_rectangle (cr,
 					 event->area.x, event->area.y,
 					 event->area.width, event->area.height);
@@ -532,17 +528,18 @@ static void scope_size_request(GtkWidget *widget,GtkRequisition *requisition)
 
 static gboolean scope_motion_event(GtkWidget *scope, GdkEventMotion      *event)
 {
+#if 0
 	int x,y;
 
 	ScopeDisplay *self = SCOPE_DISPLAY(scope);
 	x = (int)event->x - scope->allocation.x;
 	y = (int)event->y - scope->allocation.y;
-	//printf("%d %d\n",x,y);
 
 	double correction = self->freq / self->numSamples;
-
 	//printf("Freq: %f Hz (%f)\n", correction*x/2, self->freq/2);
+#endif
 	return TRUE;
+
 }
 
 static void scope_realize(GtkWidget*scope)

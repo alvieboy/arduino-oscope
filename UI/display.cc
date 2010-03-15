@@ -312,7 +312,6 @@ static gboolean zoom_changed(GtkWidget *widget)
 
 static gboolean prescaler_changed(GtkWidget *widget)
 {
-	//gchar *c = gtk_combo_box_get_active_text(GTK_COMBO_BOX(widget));
 	long index = knob_get_value(KNOB(widget));
 
 	long base = index+3;
@@ -321,10 +320,6 @@ static gboolean prescaler_changed(GtkWidget *widget)
 		serial_set_prescaler(base);
 
 	double fsample = get_sample_frequency(arduino_freq, pow(2,base));
-   /* printf("Fsample: %F Hz\n", fsample);
-	printf("Tdiv: %F ms\n", (double)numSamples*100.0 / fsample );
-	printf("Test with freq %F Hz\n", fsample/((double)numSamples/10.0));
-    */
 	scope_display_set_sample_freq(image, fsample);
 	return TRUE;
 }
@@ -381,9 +376,6 @@ static void trigger_toggle_changed(GtkWidget *widget)
 static void channels_changed(GtkWidget *widget)
 {
 	long v = knob_get_value(KNOB(widget));
-	//char *active_s = gtk_combo_box_get_active_text(GTK_COMBO_BOX(widget));
-	//if (active_s)
-	//	serial_set_channels(atoi(active_s));
 	if (do_apply)
 		serial_set_channels(v);
 }
@@ -471,15 +463,8 @@ GtkWidget *create_channel(const gchar *name, struct channelConfig *chanConfig)
 
 	GtkWidget *hbox = gtk_hbox_new(FALSE,4);
 
-	/*
-	 GtkWidget *pos=knob_new_with_range("X-POS",-255,255,1,10,0);
-	 gtk_box_pack_start(GTK_BOX(hbox),pos,TRUE,TRUE,0);
-	 gtk_widget_set_size_request(pos,60,60);
-	 */
-
 	GtkWidget *pos=knob_new_with_range("Y-POS",-255,255,1,10,0);
 	gtk_box_pack_start(GTK_BOX(hbox),pos,TRUE,TRUE,0);
-//	gtk_widget_set_size_request(pos,60,60);
 	g_signal_connect(G_OBJECT(pos),"value-changed",G_CALLBACK(&channel_changed_ypos),chanConfig);
 
 	pos=knob_new_with_range("V/DIV",0,200,5,25,100);
@@ -488,7 +473,6 @@ GtkWidget *create_channel(const gchar *name, struct channelConfig *chanConfig)
 	knob_set_reset_value(KNOB(pos),100);
 
 	gtk_box_pack_start(GTK_BOX(hbox),pos,TRUE,TRUE,0);
-//	gtk_widget_set_size_request(pos,60,60);
 	g_signal_connect(G_OBJECT(pos),"value-changed",G_CALLBACK(&channel_changed_gain),chanConfig);
 
 	gtk_container_add(GTK_CONTAINER(frame), hbox);
@@ -564,7 +548,6 @@ GtkWidget *pwm1_create_frame()
 
 void win_expose_callback(GtkWidget *w)
 {
-
 	//style = gtk_style_attach(style,w->window);
 }
 
@@ -627,20 +610,7 @@ int main(int argc,char **argv)
 	style = gtk_widget_get_style(window);
 
 	g_signal_connect(G_OBJECT(window),"destroy",G_CALLBACK(win_destroy_callback),NULL);
-	//g_signal_connect(G_OBJECT(window),"expose-event",G_CALLBACK(win_expose_callback),NULL);
 
-	GdkColor color;
-
-	gdk_color_parse ("black", &color);
-
-	//gtk_widget_modify_bg (window, GTK_STATE_NORMAL, &color);
-
-    /*
-	GtkRcStyle * rc = gtk_widget_get_modifier_style(window);
-	gtk_rc_parse_string("style \"oscope\" { bg[NORMAL]=\"black\" fg[NORMAL]=\"white\" }");
-	gtk_rc_parse_string("widget \"*\" style \"oscope\"\n");
-	gtk_widget_modify_style(window,rc);
-    */
 	hbox = gtk_hbox_new(FALSE,0);
 
 
@@ -690,17 +660,7 @@ int main(int argc,char **argv)
 
 	image = scope_display_new();
 
-	//digital_image = digital_scope_display_new();
 	gtk_box_pack_start(GTK_BOX(vbox),image,TRUE,TRUE,0);
-	//gtk_box_pack_start(GTK_BOX(vbox),digital_image,TRUE,TRUE,0);
-
-   // gtk_widget_set_size_request(digital_image,512,128);
-
-	//hbox = gtk_hbox_new(FALSE,4);
-	//gtk_box_pack_start(GTK_BOX(vbox),hbox,TRUE,TRUE,0);
-	//gtk_box_pack_start(GTK_BOX(hbox),gtk_label_new("Trigger level:"),TRUE,TRUE,0);
-
-	// TESTING
 
 	GtkWidget *mainhbox = gtk_hbox_new(FALSE,4);
 	GtkWidget *trigtimevbox = gtk_vbox_new(FALSE,4);
@@ -712,7 +672,6 @@ int main(int argc,char **argv)
 
 	knob_trigger=knob_new_with_range("TRIGGER",0,255,1,10,0);
 	gtk_box_pack_start(GTK_BOX(hbox),knob_trigger,TRUE,TRUE,0);
-//    gtk_widget_set_size_request(knob_trigger,60,60);
 	g_signal_connect(G_OBJECT(knob_trigger),"value-changed",G_CALLBACK(&trigger_level_changed),NULL);
 	knob_set_formatter(KNOB(knob_trigger),&voltage_formatter,NULL);
 	knob_set_divisions(KNOB(knob_trigger),7);
@@ -720,7 +679,6 @@ int main(int argc,char **argv)
 
 	knob_holdoff= knob_new_with_range("HOLD",0,255,1,10,0);
 	gtk_box_pack_start(GTK_BOX(hbox),knob_holdoff,TRUE,TRUE,0);
-//	gtk_widget_set_size_request(knob_holdoff,60,60);
 	g_signal_connect(G_OBJECT(knob_holdoff),"value-changed",G_CALLBACK(&holdoff_level_changed),NULL);
 
 	gtk_container_add(GTK_CONTAINER(frame), hbox);
@@ -750,32 +708,6 @@ int main(int argc,char **argv)
 
         gtk_box_pack_start(GTK_BOX(chvbox),pwm1_create_frame(),TRUE,TRUE,0);
 
-
-
-/*	hbox = gtk_hbox_new(FALSE,4);
-	gtk_box_pack_start(GTK_BOX(vbox),hbox,TRUE,TRUE,0);
-	gtk_box_pack_start(GTK_BOX(hbox),gtk_label_new("Holdoff samples:"),TRUE,TRUE,0);
-	scale_holdoff=gtk_hscale_new_with_range(0,255,1);
-	gtk_box_pack_start(GTK_BOX(hbox),scale_holdoff,TRUE,TRUE,0);
-	g_signal_connect(G_OBJECT(scale_holdoff),"value-changed",G_CALLBACK(&holdoff_level_changed),NULL);
-  */
-    /*
-	hbox = gtk_hbox_new(FALSE,4);
-	gtk_box_pack_start(GTK_BOX(vbox),hbox,TRUE,TRUE,0);
-	gtk_box_pack_start(GTK_BOX(hbox),gtk_label_new("Prescaler:"),TRUE,TRUE,0);
-	combo_prescaler=gtk_combo_box_new_text();
-	gtk_box_pack_start(GTK_BOX(hbox),combo_prescaler,TRUE,TRUE,0);
-	g_signal_connect(G_OBJECT(combo_prescaler),"changed",G_CALLBACK(&prescaler_changed),NULL);
-
-	gtk_combo_box_append_text(GTK_COMBO_BOX(combo_prescaler),"128");
-	gtk_combo_box_append_text(GTK_COMBO_BOX(combo_prescaler),"64");
-	gtk_combo_box_append_text(GTK_COMBO_BOX(combo_prescaler),"32");
-	gtk_combo_box_append_text(GTK_COMBO_BOX(combo_prescaler),"16");
-	gtk_combo_box_append_text(GTK_COMBO_BOX(combo_prescaler),"8");
-    */
-	//gtk_combo_box_append_text(GTK_COMBO_BOX(combo_prescaler),"4");
-	//gtk_combo_box_append_text(GTK_COMBO_BOX(combo_prescaler),"2");
-
 	timebase_knob = knob_new_with_range("TIME/DIV",0,4,1,1,0);
 	knob_set_divisions(KNOB(timebase_knob),5);
 	gtk_box_pack_start(GTK_BOX(trigtimevbox),timebase_knob,TRUE,TRUE,0);
@@ -800,36 +732,6 @@ int main(int argc,char **argv)
 
 	hbox = gtk_hbox_new(FALSE,4);
 	gtk_box_pack_start(GTK_BOX(vbox),hbox,TRUE,TRUE,0);
-
-    /*
-	gtk_box_pack_start(GTK_BOX(hbox),gtk_label_new("Channels:"),TRUE,TRUE,0);
-	combo_channels = gtk_combo_box_new_text();
-	gtk_box_pack_start(GTK_BOX(hbox),combo_channels,TRUE,TRUE,0);
-
-	gtk_combo_box_append_text(GTK_COMBO_BOX(combo_channels),"1");
-	gtk_combo_box_append_text(GTK_COMBO_BOX(combo_channels),"2");
-	gtk_combo_box_append_text(GTK_COMBO_BOX(combo_channels),"3");
-	gtk_combo_box_append_text(GTK_COMBO_BOX(combo_channels),"4");
-	g_signal_connect(G_OBJECT(combo_channels),"changed",G_CALLBACK(&channels_changed),NULL);
-    */
-	//gtk_box_pack_start(GTK_BOX(hbox),gtk_label_new("Channels:"),TRUE,TRUE,0);
-
-	/*
-	 knob_channels = knob_new_with_range("CHANS",1,4,1,1,1);
-	 knob_set_divisions( KNOB(knob_channels), 4 );
-	 gtk_box_pack_start(GTK_BOX(hbox),knob_channels,TRUE,TRUE,0);
-	 */
-
-	//gtk_widget_set_size_request(knob_channels,60,60);
-
-	/*
-	 gtk_combo_box_append_text(GTK_COMBO_BOX(combo_channels),"1");
-	gtk_combo_box_append_text(GTK_COMBO_BOX(combo_channels),"2");
-	gtk_combo_box_append_text(GTK_COMBO_BOX(combo_channels),"3");
-	gtk_combo_box_append_text(GTK_COMBO_BOX(combo_channels),"4");
-	*/
-
-	//g_signal_connect(G_OBJECT(knob_channels),"changed",G_CALLBACK(&channels_changed),NULL);
 
 	hbox = gtk_hbox_new(FALSE,4);
 	gtk_box_pack_start(GTK_BOX(vbox),hbox,TRUE,TRUE,0);
