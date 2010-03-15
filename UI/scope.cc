@@ -57,6 +57,13 @@ GtkWidget *scope_display_new (void)
 	return (GtkWidget*)g_object_new (SCOPE_DISPLAY_TYPE, NULL);
 }
 
+static gboolean scope_finished_waveform(GtkWidget *scope);
+
+void scope_snapshot(GtkWidget*scope)
+{
+        SCOPE_DISPLAY(scope)->request_snapshot=TRUE;
+}
+
 static void draw_background(cairo_t *cr,const GtkAllocation *allocation)
 {
 	/* This ought to fill all available area */
@@ -422,6 +429,7 @@ void scope_display_set_data(GtkWidget *scope, unsigned char *data, size_t size)
 
 	if (!(flags&CAPTURED_FRAME_FLAG_SEQUENTIAL_CHANNEL) || storeChannel==self->channels-1) {
 		gtk_widget_queue_draw(scope);
+		scope_finished_waveform(scope);
 	}
 }
 
@@ -467,28 +475,14 @@ static gchar *next_screenshot_filename()
     return g_strdup("screenshot.png");
 }
 
-static gboolean scope_display_expose(GtkWidget *scope, GdkEventExpose *event)
+static gboolean scope_finished_waveform(GtkWidget *scope)
 {
-        ScopeDisplay *d = SCOPE_DISPLAY(scope);
-	cairo_t *cr;
 #ifdef HAVE_CAIRO_PNG
 	cairo_surface_t *surface;
 	char *output_png_filename;
-#endif
+	cairo_t *cr;
+        ScopeDisplay *d = SCOPE_DISPLAY(scope);
 
-	/* get a cairo_t */
-	cr = gdk_cairo_create (scope->window);
-    //fprintf(stderr,"Expose %d %d\n",event->area.width, event->area.height);
-	cairo_rectangle (cr,
-					 event->area.x, event->area.y,
-					 event->area.width, event->area.height);
-	cairo_clip (cr);
-
-	draw (scope, cr);
-
-	cairo_destroy (cr);
-
-#ifdef HAVE_CAIRO_PNG
 	if (d->request_snapshot) {
 	    // Redraw
 	    surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32,
@@ -505,6 +499,25 @@ static gboolean scope_display_expose(GtkWidget *scope, GdkEventExpose *event)
 	    d->request_snapshot = false;
 	}
 #endif
+
+}
+static gboolean scope_display_expose(GtkWidget *scope, GdkEventExpose *event)
+{
+        ScopeDisplay *d = SCOPE_DISPLAY(scope);
+	cairo_t *cr;
+
+	/* get a cairo_t */
+	cr = gdk_cairo_create (scope->window);
+    //fprintf(stderr,"Expose %d %d\n",event->area.width, event->area.height);
+	cairo_rectangle (cr,
+					 event->area.x, event->area.y,
+					 event->area.width, event->area.height);
+	cairo_clip (cr);
+
+	draw (scope, cr);
+
+	cairo_destroy (cr);
+
 	return FALSE;
 }
 

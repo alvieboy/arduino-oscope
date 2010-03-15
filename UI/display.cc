@@ -602,6 +602,10 @@ static gchar *voltage_formatter(long value, void *data)
 	return ret;
 }
 
+void snapshot_clicked(GtkWidget*w)
+{
+	scope_snapshot(image);
+}
 
 int main(int argc,char **argv)
 {
@@ -836,9 +840,14 @@ int main(int argc,char **argv)
 	g_signal_connect(G_OBJECT(freeze_button),"clicked",G_CALLBACK(&freeze_unfreeze),NULL);
 	gtk_box_pack_start(GTK_BOX(hbox),freeze_button,TRUE,TRUE,0);
 
+	GtkWidget *snap = gtk_button_new_with_label("Snapshot...");
+	gtk_box_pack_start(GTK_BOX(hbox),snap,TRUE,TRUE,0);
+	g_signal_connect(G_OBJECT(snap),"clicked",G_CALLBACK(&snapshot_clicked),NULL);
+
 	GtkWidget *tog = gtk_check_button_new_with_label("Invert trigger");
 	gtk_box_pack_start(GTK_BOX(hbox),tog,TRUE,TRUE,0);
 	g_signal_connect(G_OBJECT(tog),"toggled",G_CALLBACK(&trigger_toggle_changed),NULL);
+
 
 	voltage_changed();
 
