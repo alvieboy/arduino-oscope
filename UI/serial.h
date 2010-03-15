@@ -20,6 +20,7 @@
 #define __SERIAL_H__
 
 #include <gtk/gtk.h>
+#include "../protocol.h"
 
 int serial_init(gchar*name);
 int serial_run( void (*setdata)(unsigned char *data,size_t size),
@@ -31,6 +32,7 @@ void serial_set_vref(unsigned char vref);
 void serial_set_trigger_invert(gboolean active);
 void serial_set_channels(int channels);
 void serial_set_sequential_channel(gboolean isseq);
+void serial_set_pwm1(pwm1_config_t *config);
 
 double get_sample_frequency(unsigned long freq, unsigned long prescaler);
 void serial_set_oneshot( void(*callback)(void*) , void *data);

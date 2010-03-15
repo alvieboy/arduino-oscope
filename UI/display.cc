@@ -62,6 +62,90 @@ static long arduino_vref = 5000; // 5V
 static long arduino_avcc = 5000; // 5V
 static long arduino_current_vref = 5000; // 5V
 
+// PWM1 Generator
+GtkWidget *pwm1_knob_frequency;
+GtkWidget *pwm1_knob_duty_A;
+GtkWidget *pwm1_knob_duty_B;
+double pwm1_exponent_base;
+const unsigned int pwm1_ticks = 1024;
+const unsigned int pwm1_min_resolution = 100;
+pwm1_config_t pwm1config;
+
+static void flushEvents()
+{
+	while (gtk_events_pending ())
+		gtk_main_iteration ();
+}
+
+void pwm1_compute()
+{
+    double fOCnxPFCPWM = (double)arduino_freq / ( 2.0 * double(pwm1_min_resolution) );
+
+    pwm1_exponent_base = exp( log(fOCnxPFCPWM)/(double)pwm1_ticks );
+}
+
+static const unsigned pwmdividers[] = { 1,8,64,254,1024 };
+
+
+int pwm1_value_max_for_freq(double freq, uint8_t *prescale, uint16_t *max)
+{
+    double nTop =  (double)arduino_freq / (2.0*freq);
+    int i;
+
+    for (i=0; i<(sizeof(pwmdividers)/sizeof(unsigned)); i++) {
+	unsigned count = nTop/pwmdividers[i];
+
+	unsigned bits = round(count);
+
+	if (bits<=65535)  {
+	    *max = bits;
+	    *prescale = i+1;
+            return 0;
+	}
+    }
+    return -1;
+}
+
+void scope_got_pwm1_config(const pwm1_config_t *config)
+{
+	do_apply = FALSE;
+
+        /*
+	if (config->clk>sizeof(pwmdividers))
+		config->clk=0;
+          */
+	unsigned divider = pwmdividers[config->clk-1];
+
+	memcpy(&pwm1config, config,sizeof(pwm1_config_t));
+
+	/* Back compute things */
+
+	double fOCnxPFCPWM = (double)arduino_freq / ( 2.0 * divider * config->max );
+
+	// pwm1_exponent_base = exp( log(fOCnxPFCPWM)/(double)pwm1_ticks );
+	// log(pwm1_exponent_base) = log(fOCnxPFCPWM)/(double)pwm1_ticks;
+	long pwm1_ticks = log(fOCnxPFCPWM)/log(pwm1_exponent_base);
+	fprintf(stderr,"PWM Ticks: %u\n",pwm1_ticks);
+
+	knob_set_value(KNOB(pwm1_knob_frequency), pwm1_ticks);
+
+	// Now, duty cycles.
+
+	double duty_a = 100.0*config->count_a / config->max;
+	double duty_b = 100.0*config->count_b / config->max;
+
+	knob_set_value(KNOB(pwm1_knob_duty_A), (long)duty_a);
+        knob_set_value(KNOB(pwm1_knob_duty_B), (long)duty_b);
+
+
+	flushEvents();
+	do_apply = TRUE;
+}
+
+
+
+
+
 void win_destroy_callback()
 {
 	gtk_main_quit();
@@ -98,6 +182,27 @@ static void timebase_update()
 		g_slist_free(old);
 }
 
+static void pwm1_update()
+{
+	pwm1_compute();
+}
+
+static gchar *pwm1_formatter(long value, void *data)
+{
+	gchar *ret = NULL;
+
+	double freq = pow( pwm1_exponent_base, value );
+	asprintf(&ret,"%.04f Hz", freq);
+	return ret;
+}
+
+static gchar *percentage_formatter(long value, void *data)
+{
+	gchar *ret = NULL;
+	asprintf(&ret,"%u%%", value);
+	return ret;
+}
+
 static gchar *timebase_formatter(long value, void *data)
 {
 	gchar *ret = NULL;
@@ -129,6 +234,8 @@ void scope_got_constants(uint32_t freq,uint16_t avcc,uint16_t vref)
 	arduino_vref = vref;
 
 }
+
+
 
 void scope_got_parameters(unsigned char triggerLevel,
 						  unsigned char holdoffSamples,
@@ -171,11 +278,7 @@ void scope_got_parameters(unsigned char triggerLevel,
 	//gtk_combo_box_set_active(GTK_COMBO_BOX(combo_channels),num_channels-1);
 	// knob_set_value( KNOB(knob_channels), num_channels );
 
-	// Flush all events.
-
-	while (gtk_events_pending ())
-		gtk_main_iteration ();
-
+	flushEvents();
 	do_apply = TRUE;
 }
 
@@ -392,6 +495,73 @@ GtkWidget *create_channel(const gchar *name, struct channelConfig *chanConfig)
 	return frame;
 }
 
+uint16_t pwm_compute_duty(uint16_t max, long duty)
+{
+	duty*=max;
+	return duty/100;
+}
+
+void pwm1_changed_freq(GtkWidget *knob)
+{
+	long v = knob_get_value(KNOB(knob));
+
+	pwm1_value_max_for_freq( pow(pwm1_exponent_base,v), &pwm1config.clk, &pwm1config.max);
+
+	pwm1config.count_a = pwm_compute_duty(pwm1config.max, knob_get_value(KNOB(pwm1_knob_duty_A)));
+	pwm1config.count_b = pwm_compute_duty(pwm1config.max, knob_get_value(KNOB(pwm1_knob_duty_B)));
+
+	fprintf(stderr,"SENDING PWM CONFIG: max %u clk %u A %u B %u\n",
+		pwm1config.max,
+		pwm1config.clk,
+		pwm1config.count_a,
+		pwm1config.count_b
+	       );
+	if (do_apply)
+		serial_set_pwm1(&pwm1config);
+}
+
+void pwm1_changed_dutyA(GtkWidget *knob)
+{
+	pwm1config.count_a = pwm_compute_duty(pwm1config.max, knob_get_value(KNOB(knob)));
+	if (do_apply)
+		serial_set_pwm1(&pwm1config);
+}
+
+void pwm1_changed_dutyB(GtkWidget *knob)
+{
+	pwm1config.count_b = pwm_compute_duty(pwm1config.max, knob_get_value(KNOB(knob)));
+	if (do_apply)
+		serial_set_pwm1(&pwm1config);
+}
+
+GtkWidget *pwm1_create_frame()
+{
+	GtkWidget *frame = gtk_frame_new("PWM1 config");
+
+	GtkWidget *hbox = gtk_hbox_new(FALSE,4);
+
+	pwm1_knob_frequency = knob_new_with_range("Frequency",0,pwm1_ticks,1,10,0);
+	gtk_box_pack_start(GTK_BOX(hbox),pwm1_knob_frequency,TRUE,TRUE,0);
+	knob_set_formatter(KNOB(pwm1_knob_frequency),&pwm1_formatter,NULL);
+	knob_set_reset_value(KNOB(pwm1_knob_frequency),pwm1_ticks>>1);
+	g_signal_connect(G_OBJECT(pwm1_knob_frequency),"value-changed",G_CALLBACK(&pwm1_changed_freq),0);
+
+	pwm1_knob_duty_A = knob_new_with_range("Duty A",0,100,1,5,50);
+	gtk_box_pack_start(GTK_BOX(hbox),pwm1_knob_duty_A,TRUE,TRUE,0);
+	knob_set_formatter(KNOB(pwm1_knob_duty_A),&percentage_formatter,NULL);
+	knob_set_reset_value(KNOB(pwm1_knob_duty_A),50);
+	g_signal_connect(G_OBJECT(pwm1_knob_duty_A),"value-changed",G_CALLBACK(&pwm1_changed_dutyA),0);
+
+	pwm1_knob_duty_B = knob_new_with_range("Duty B",0,100,1,5,50);
+	gtk_box_pack_start(GTK_BOX(hbox),pwm1_knob_duty_B,TRUE,TRUE,0);
+	knob_set_formatter(KNOB(pwm1_knob_duty_B),&percentage_formatter,NULL);
+	knob_set_reset_value(KNOB(pwm1_knob_duty_B),50);
+	g_signal_connect(G_OBJECT(pwm1_knob_duty_B),"value-changed",G_CALLBACK(&pwm1_changed_dutyB),0);
+
+	gtk_container_add(GTK_CONTAINER(frame), hbox);
+	return frame;
+}
+
 void win_expose_callback(GtkWidget *w)
 {
 
@@ -570,6 +740,11 @@ int main(int argc,char **argv)
 
 	gtk_box_pack_start(GTK_BOX(vbox),mainhbox,TRUE,TRUE,0);
 
+	/* PWM1 BOX */
+
+        gtk_box_pack_start(GTK_BOX(chvbox),pwm1_create_frame(),TRUE,TRUE,0);
+
+
 
 /*	hbox = gtk_hbox_new(FALSE,4);
 	gtk_box_pack_start(GTK_BOX(vbox),hbox,TRUE,TRUE,0);
@@ -603,6 +778,7 @@ int main(int argc,char **argv)
 	g_signal_connect(G_OBJECT(timebase_knob),"value-changed",G_CALLBACK(&prescaler_changed),NULL);
 
 	timebase_update();
+	pwm1_update();
 
 	hbox = gtk_hbox_new(FALSE,4);
 	gtk_box_pack_start(GTK_BOX(vbox),hbox,TRUE,TRUE,0);

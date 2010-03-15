@@ -207,11 +207,6 @@ void setup()
 	//TCCR2B = (TCCR2B & 0b11111000) | 0x02; // 62.5KHz
 	//OCR0A = 10;
 
-	ICR1 = 32622;
-	TCCR1A = BIT(COM1A1) | BIT(COM1B1);
-        TCCR1B = BIT(WGM13) | BIT(CS10);
-	OCR1A = 1000;
-	OCR2A = 3000;
 	pinMode(11,OUTPUT);
         pinMode(12,OUTPUT);
 	//DDRB |= _BV(PORTB2) | _BV(PORTB1);
@@ -460,6 +455,42 @@ DECLARE_FUNCTION(COMMAND_SET_FLAGS)(uint8_t val) {
 	params.flags |= val;
 	sei();
 	send_parameters();
+}
+END_FUNCTION
+
+DECLARE_FUNCTION(COMMAND_SET_PWM1)(const pwm1_config_t *cfg)
+{
+    uint8_t ntccr;
+    uint8_t clk = cfg->clk;
+
+    //clk &= ~(BIT(CS10)|BIT(CS11)|BIT(CS12));
+
+    TCCR1B = BIT(WGM13) | clk;
+
+    ICR1 = cfg->max;
+    ntccr = 0;
+    if (cfg->count_a>0) {
+	ntccr |= BIT(COM1A1);
+    }
+    if (cfg->count_b>0) {
+	ntccr |= BIT(COM1B1);
+    }
+
+    TCCR1A = ntccr;
+    OCR1A = cfg->count_a;
+    OCR1B = cfg->count_b;
+}
+END_FUNCTION
+
+DECLARE_FUNCTION(COMMAND_GET_PWM1)(void)
+{
+    pwm1_config_t cfg;
+    
+    cfg.clk = TCCR1B & (BIT(CS10)|BIT(CS11)|BIT(CS12));
+    cfg.max = ICR1;
+    cfg.count_a = OCR1A;
+    cfg.count_b = OCR1B;
+    SerPro::send( COMMAND_PWM1_REPLY, &cfg );
 }
 END_FUNCTION
 

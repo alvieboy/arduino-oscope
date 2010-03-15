@@ -40,11 +40,15 @@
 #define COMMAND_SET_CHANNELS   0x0B
 #define COMMAND_WRITE_SCRATCHPAD   0x0C
 #define COMMAND_READ_SCRATCHPAD   0x0D
+#define COMMAND_SET_PWM1         0x0E
+#define COMMAND_GET_PWM1         0x0F
+
 #define COMMAND_VERSION_REPLY  0x00
 #define COMMAND_BUFFER_SEG     0x01
 #define COMMAND_PARAMETERS_REPLY 0x02
 #define COMMAND_CONSTANTS_REPLY 0x03
 #define COMMAND_SCRATCHPAD_REPLY 0x04
+#define COMMAND_PWM1_REPLY     0x05
 #define COMMAND_ERROR          0xFF
 
 #define FLAG_INVERT_TRIGGER  (1<<0)
@@ -64,5 +68,11 @@ typedef struct {
 	uint8_t channels;
 } __attribute__((packed)) parameters_t;
 
+typedef struct {
+	uint8_t clk;
+	uint16_t max;
+	uint16_t count_a;
+        uint16_t count_b;
+} __attribute__((packed)) pwm1_config_t;
 
 #endif

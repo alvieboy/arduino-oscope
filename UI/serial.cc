@@ -104,6 +104,9 @@ extern void scope_got_parameters(unsigned char triggerLevel,
 								 unsigned char flags,
 								 unsigned char numChannels);
 
+
+extern void scope_got_pwm1_config(const pwm1_config_t *config);
+
 extern void scope_got_constants(uint32_t freq,uint16_t avcc,uint16_t vref);
 
 
@@ -111,6 +114,7 @@ enum mystate {
 	PING,
 	GETVERSION,
 	GETCONSTANTS,
+        GETPWM1CONFIG,
 	GETPARAMETERS,
 	SAMPLING
 };
@@ -120,8 +124,8 @@ static enum mystate state = PING;
 DECLARE_FUNCTION(COMMAND_CONSTANTS_REPLY)(uint32_t freq, uint16_t avcc, uint16_t vref)
 {
 	scope_got_constants(freq,avcc,vref);
-	state=GETPARAMETERS;
-	SerPro::sendPacket(COMMAND_GET_PARAMETERS);
+	state=GETPWM1CONFIG;
+	SerPro::sendPacket(COMMAND_GET_PWM1);
 }
 
 END_FUNCTION
@@ -197,24 +201,34 @@ DECLARE_FUNCTION(COMMAND_BUFFER_SEG)(const SerPro::RawBuffer &b)
 }
 END_FUNCTION
 
+DECLARE_FUNCTION(COMMAND_PWM1_REPLY)(const pwm1_config_t *p)
+{
+	scope_got_pwm1_config(p);
+	state=GETPARAMETERS;
+	SerPro::sendPacket(COMMAND_GET_PARAMETERS);
+
+}
+END_FUNCTION
+
 template<>
 void handleEvent<LINK_UP>() {
 	SerPro::sendPacket(COMMAND_GET_VERSION);
 	state = GETVERSION;
 }
 
-/*
+
 template<>
 void Dumper<1>(const unsigned char *buffer,size_t size)
 {
 	size_t i;
-	fprintf(stderr,"< [%d]",size);
-	for (i=0;i<size;i++) {
-		fprintf(stderr," %u",(int)buffer[i]);
+	fprintf(stderr,"< [%03d] ",size);
+	fprintf(stderr,"{%03d}", (unsigned int)buffer[0]);
+	for (i=1;i<size;i++) {
+		fprintf(stderr," %u",(unsigned int)buffer[i]);
 	}
 	fprintf(stderr,"\n");
 }
-*/
+
 
 /*
 DECLARE_FUNCTION(COMMAND_DIG_BUFFER_SEG)(const SerPro::RawBuffer &b) {
@@ -236,7 +250,6 @@ gboolean serial_data_ready(GIOChannel *source,
 
 	g_io_channel_read_chars(source,&c,1,&r,&error);
 	if (NULL==error && r==1)  {
-		//printf("< %02x\n",(unsigned int)c);
 		SerPro::processData((unsigned char)c);
 	}
 	return TRUE;
@@ -310,7 +323,8 @@ int real_serial_init(char *device)
 		fprintf(stderr,"Cannot set encoding: %s\n", error->message);
 	}
 	error = NULL;
-    g_io_channel_set_buffered(channel, false);
+
+	g_io_channel_set_buffered(channel, false);
 	
 
 	g_io_channel_set_flags (channel, G_IO_FLAG_NONBLOCK, &error);
@@ -407,9 +421,14 @@ void serial_set_oneshot( void(*callback)(void*), void*data )
 	}
 }
 
+void serial_set_pwm1(pwm1_config_t *config)
+{
+	SerPro::sendPacket(COMMAND_SET_PWM1, config);
+}
+
 gboolean serial_in_request()
 {
-    return in_request;
+	return in_request;
 }
 
 double get_sample_frequency(unsigned long freq, unsigned long prescaler)

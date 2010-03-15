@@ -420,7 +420,7 @@ static gboolean knob_button_press_event(GtkWidget*knob,GdkEventButton*event)
 	double dx = -1.0*(event->x - knob->allocation.width/2);
 	double dy = event->y - knob->allocation.height/2;
 
-	if (fabs(dx)<10.0 && fabs(dy)<10.00)
+	if (fabs(dx)<self->knob_radius && fabs(dy)<self->knob_radius)
 		return TRUE;
 
 	knob_set_value_by_vector(self,dx,dy);
