@@ -463,7 +463,7 @@ DECLARE_FUNCTION(COMMAND_SET_PWM1)(const pwm1_config_t *cfg)
     uint8_t ntccr;
     uint8_t clk = cfg->clk;
 
-    //clk &= ~(BIT(CS10)|BIT(CS11)|BIT(CS12));
+    clk &= BIT(CS10)|BIT(CS11)|BIT(CS12);
 
     TCCR1B = BIT(WGM13) | clk;
 
