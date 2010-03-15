@@ -602,10 +602,12 @@ static gchar *voltage_formatter(long value, void *data)
 	return ret;
 }
 
-void snapshot_clicked(GtkWidget*w)
+#ifdef HAVE_CAIRO_PNG
+static void snapshot_clicked(GtkWidget*w)
 {
 	scope_snapshot(image);
 }
+#endif
 
 int main(int argc,char **argv)
 {
