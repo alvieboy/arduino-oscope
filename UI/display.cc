@@ -701,7 +701,7 @@ int main(int argc,char **argv)
 	// TESTING
 
 	GtkWidget *mainhbox = gtk_hbox_new(FALSE,4);
-    GtkWidget *trigtimevbox = gtk_vbox_new(FALSE,4);
+	GtkWidget *trigtimevbox = gtk_vbox_new(FALSE,4);
 
 	GtkWidget *frame = gtk_frame_new("Trigger");
 	gtk_box_pack_start(GTK_BOX(trigtimevbox),frame,TRUE,TRUE,0);
@@ -840,9 +840,11 @@ int main(int argc,char **argv)
 	g_signal_connect(G_OBJECT(freeze_button),"clicked",G_CALLBACK(&freeze_unfreeze),NULL);
 	gtk_box_pack_start(GTK_BOX(hbox),freeze_button,TRUE,TRUE,0);
 
+#ifdef HAVE_CAIRO_PNG
 	GtkWidget *snap = gtk_button_new_with_label("Snapshot...");
 	gtk_box_pack_start(GTK_BOX(hbox),snap,TRUE,TRUE,0);
 	g_signal_connect(G_OBJECT(snap),"clicked",G_CALLBACK(&snapshot_clicked),NULL);
+#endif
 
 	GtkWidget *tog = gtk_check_button_new_with_label("Invert trigger");
 	gtk_box_pack_start(GTK_BOX(hbox),tog,TRUE,TRUE,0);
