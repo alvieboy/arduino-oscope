@@ -201,16 +201,16 @@ void setup()
 	pinMode(sampleFreqPin,OUTPUT);
 	setup_adc();
 
-	/* Simple test for PWM output */
-	//TCCR0B = (TCCR0B & 0b11111000) | 0x02; // 62.5KHz
-	//TCCR1B = (TCCR1B & 0b11111000) | 0x02; // 62.5KHz
-	//TCCR2B = (TCCR2B & 0b11111000) | 0x02; // 62.5KHz
-	//OCR0A = 10;
-
+        /* PWM1 outputs */
+#ifndef __AVR_ATmega128__
 	pinMode(11,OUTPUT);
-        pinMode(12,OUTPUT);
-	//DDRB |= _BV(PORTB2) | _BV(PORTB1);
-	//TCCR1A |= _BV(COM1B1) | _BV(COM1A1);
+	pinMode(12,OUTPUT);
+#elif defined (__AVR_ATmega328P__) || defined (__AVR_ATmega328__)
+	pinMode(9,OUTPUT);
+	pinMode(10,OUTPUT);
+#else
+#error Unsupported target board.
+#endif
 
 	memset(&scratchpad,0,sizeof(scratchpad_t));
 	set_num_samples(962);
