@@ -202,19 +202,22 @@ void setup()
 	setup_adc();
 
 	/* Simple test for PWM output */
-	TCCR0B = (TCCR0B & 0b11111000) | 0x02; // 62.5KHz
-	TCCR1B = (TCCR1B & 0b11111000) | 0x02; // 62.5KHz
-	TCCR2B = (TCCR2B & 0b11111000) | 0x02; // 62.5KHz
+	//TCCR0B = (TCCR0B & 0b11111000) | 0x02; // 62.5KHz
+	//TCCR1B = (TCCR1B & 0b11111000) | 0x02; // 62.5KHz
+	//TCCR2B = (TCCR2B & 0b11111000) | 0x02; // 62.5KHz
 	//OCR0A = 10;
-   // OCR1A = 20;
-	// OCR2A = 30;
-	memset(&scratchpad,0,sizeof(scratchpad_t));
 
-	analogWrite(pwmPin,127);
-	pinMode(8,OUTPUT);
-	analogWrite(8,100);
-	pinMode(7,OUTPUT);
-	analogWrite(7,60);
+	ICR1 = 32622;
+	TCCR1A = BIT(COM1A1) | BIT(COM1B1);
+        TCCR1B = BIT(WGM13) | BIT(CS10);
+	OCR1A = 1000;
+	OCR2A = 3000;
+	pinMode(11,OUTPUT);
+        pinMode(12,OUTPUT);
+	//DDRB |= _BV(PORTB2) | _BV(PORTB1);
+	//TCCR1A |= _BV(COM1B1) | _BV(COM1A1);
+
+	memset(&scratchpad,0,sizeof(scratchpad_t));
 	set_num_samples(962);
 }
 
@@ -439,12 +442,6 @@ DECLARE_FUNCTION(COMMAND_GET_CONSTANTS)(void) {
 	SerPro::send(COMMAND_CONSTANTS_REPLY,freq, avcc, vref);
 }
 END_FUNCTION
-
-/* Scratchpad. Use at will. */
-typedef struct {
-	unsigned char data[64];
-} scratchpad_t;
-static scratchpad_t scratchpad;
 
 DECLARE_FUNCTION(COMMAND_READ_SCRATCHPAD)(void) {
 	SerPro::send(COMMAND_SCRATCHPAD_REPLY, &scratchpad);
