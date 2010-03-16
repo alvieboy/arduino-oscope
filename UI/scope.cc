@@ -50,6 +50,7 @@ static void scope_display_init (ScopeDisplay *scope)
 	scope->scope_xpos = 0;
 	scope->scope_ypos = 0;
 	scope->numSamples = 962;
+        scope->write_screenshot=NULL;
 }
 
 GtkWidget *scope_display_new (void)
@@ -467,11 +468,6 @@ void scope_display_set_channel_config(GtkWidget *scope,
 	gtk_widget_queue_draw(scope);
 }
 
-static gchar *next_screenshot_filename()
-{
-    return g_strdup("screenshot.png");
-}
-
 static gboolean scope_finished_waveform(GtkWidget *scope)
 {
 #ifdef HAVE_CAIRO_PNG
@@ -481,17 +477,17 @@ static gboolean scope_finished_waveform(GtkWidget *scope)
         ScopeDisplay *d = SCOPE_DISPLAY(scope);
 
 	if (d->request_snapshot) {
-	    // Redraw
+            // Redraw
+            if (d->write_screenshot != NULL) {
 	    surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32,
 						 scope->allocation.width,
 						 scope->allocation.height);
 	    cr = cairo_create(surface);
 	    draw (scope, cr);
-            output_png_filename = next_screenshot_filename();
-	    cairo_surface_write_to_png(surface,output_png_filename);
-	    g_free(output_png_filename);
+            d->write_screenshot(scope, surface);
             cairo_surface_destroy(surface);
-	    cairo_destroy (cr);
+            cairo_destroy (cr);
+            }
 
 	    d->request_snapshot = false;
 	}
@@ -558,6 +554,11 @@ static void scope_display_class_init (ScopeDisplayClass *cl)
 	widget_class->size_request = scope_size_request;
 	widget_class->motion_notify_event = scope_motion_event;
     widget_class->realize = scope_realize;
+}
+
+void scope_set_snapshot_function(GtkWidget *scope,int (*func)(GtkWidget *,cairo_surface_t*))
+{
+        SCOPE_DISPLAY(scope)->write_screenshot = func;
 }
 
 struct channelConfig *scope_display_get_config_for_channel(GtkWidget *scope, int chan)

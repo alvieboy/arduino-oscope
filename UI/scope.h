@@ -60,9 +60,11 @@ struct _ScopeDisplay
 	int flags;
 #ifdef HAVE_CAIRO_PNG
         bool request_snapshot;
+	int (*write_screenshot)(GtkWidget *,cairo_surface_t*);
 #endif
 	/* Cached values. */
 	int scope_xpos,scope_ypos;
+
 };
 
 struct _ScopeDisplayClass
@@ -85,6 +87,7 @@ void scope_display_set_samples(GtkWidget *scope, unsigned short numSamples);
 void scope_display_set_sample_freq(GtkWidget *scope, double freq);
 void scope_display_set_channels(GtkWidget *scope, unsigned char);
 void scope_snapshot(GtkWidget *scope);
+void scope_set_snapshot_function(GtkWidget *scope,int (*func)(GtkWidget *,cairo_surface_t*));
 struct channelConfig *scope_display_get_config_for_channel(GtkWidget *scope, int chan);
 #ifdef HAVE_DFT
 void scope_set_mode(GtkWidget*self, scope_mode_t mode);

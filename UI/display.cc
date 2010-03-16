@@ -22,6 +22,9 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <dirent.h>
 #include "../protocol.h"
 #include "channel.h"
 #include "knob.h"
@@ -38,11 +41,8 @@ cairo_t *cr;
 
 GtkWidget *knob_trigger;
 GtkWidget *knob_holdoff;
-//GtkWidget *combo_prescaler;
 GtkWidget *combo_vref;
 GtkWidget *set_chan[4];
-//GtkWidget *combo_channels;
-//GtkWidget *knob_channels;
 GtkWidget *shot_button;
 GtkWidget *freeze_button;
 GtkStyle *style;
@@ -142,8 +142,58 @@ void scope_got_pwm1_config(const pwm1_config_t *config)
 	do_apply = TRUE;
 }
 
+unsigned int next_screenshot_index = 0;
+#define SCREENSHOT_BASE "screenshot-"
+void init_screenshot()
+{
+    char cwd[PATH_MAX];
+    DIR *d;
+    struct dirent *ent;
+    char *endp;
 
+    if (getcwd(cwd,sizeof(cwd))==NULL)
+	return;
 
+    d = opendir(cwd);
+    if (d==NULL)
+	return;
+
+    while ((ent=readdir(d))!=NULL) {
+	if (strncmp( SCREENSHOT_BASE,ent->d_name,strlen(SCREENSHOT_BASE) )==0) {
+	    char *n = ent->d_name + strlen(SCREENSHOT_BASE);
+            unsigned long v;
+	    if (!*n)
+		break;
+	    v = strtoul(n,&endp,10);
+	    if (endp!=NULL && *endp=='.') {
+		v++;
+                if (v>next_screenshot_index)
+		    next_screenshot_index=v;
+	    }
+	}
+    }
+
+    closedir(d);
+}
+
+int write_screenshot(GtkWidget *w, cairo_surface_t*surface)
+{
+    char nextfilename[PATH_MAX];
+    struct stat st;
+    do {
+	sprintf(nextfilename,"%s%04u.png",SCREENSHOT_BASE,next_screenshot_index);
+	
+	if (lstat(nextfilename,&st)==0) {
+	    next_screenshot_index++;
+	    continue;
+	}
+        break;
+    } while(1);
+
+    cairo_surface_write_to_png(surface,nextfilename);
+    next_screenshot_index++;
+    return 0;
+}
 
 
 void win_destroy_callback()
@@ -754,7 +804,8 @@ int main(int argc,char **argv)
 	gtk_box_pack_start(GTK_BOX(hbox),tog,TRUE,TRUE,0);
 	g_signal_connect(G_OBJECT(tog),"toggled",G_CALLBACK(&trigger_toggle_changed),NULL);
 
-
+        init_screenshot();
+	scope_set_snapshot_function(image,&write_screenshot);
 	voltage_changed();
 
 	gtk_widget_show_all(window);
