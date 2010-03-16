@@ -202,7 +202,7 @@ void setup()
 	setup_adc();
 
         /* PWM1 outputs */
-#ifndef __AVR_ATmega128__
+#ifdef __AVR_ATmega1280__
 	pinMode(11,OUTPUT);
 	pinMode(12,OUTPUT);
 #elif defined (__AVR_ATmega328P__) || defined (__AVR_ATmega328__)
