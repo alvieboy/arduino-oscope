@@ -220,7 +220,7 @@ static void timebase_update()
 
 	int value;
 	for (value=0; value<=4; value++) {
-		double fsample = get_sample_frequency(arduino_freq, pow(2,value+4));
+		double fsample = get_sample_frequency(arduino_freq, pow(2,value+3));
 		double tdiv = (double)numSamples*100.0 / fsample;
 		asprintf(&ret,"%.02f ms", tdiv);
 		newlist = g_slist_append(newlist, ret);
@@ -258,10 +258,10 @@ static gchar *timebase_formatter(long value, void *data)
 	gchar *ret = NULL;
 
 	// TODO: fetch correct voltage from data
-	double fsample = get_sample_frequency(arduino_freq, pow(2,value+4));
+	double fsample = get_sample_frequency(arduino_freq, pow(2,value+3));
 	double tdiv = (double)numSamples*100.0 / fsample;
 	fprintf(stderr,"Fsample %f %f %u\n",fsample,tdiv,numSamples);
-	asprintf(&ret,"%.02f ms", tdiv);
+	asprintf(&ret,"%.02f ms", tdiv, (int)pow(2,value+3));
 	return ret;
 }
 

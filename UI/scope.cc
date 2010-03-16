@@ -524,7 +524,6 @@ static void scope_size_request(GtkWidget *widget,GtkRequisition *requisition)
 
 static gboolean scope_motion_event(GtkWidget *scope, GdkEventMotion      *event)
 {
-#if 0
 	int x,y;
 
 	ScopeDisplay *self = SCOPE_DISPLAY(scope);
@@ -532,8 +531,7 @@ static gboolean scope_motion_event(GtkWidget *scope, GdkEventMotion      *event)
 	y = (int)event->y - scope->allocation.y;
 
 	double correction = self->freq / self->numSamples;
-	//printf("Freq: %f Hz (%f)\n", correction*x/2, self->freq/2);
-#endif
+	printf("Freq: %f Hz (%f)\n", correction*x/2, self->freq/2);
 	return TRUE;
 
 }
