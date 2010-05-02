@@ -21,7 +21,6 @@
 #include <math.h>
 #include <string.h>
 #include "channel.h"
-#include "../protocol.h"
 
 G_DEFINE_TYPE (ScopeDisplay, scope_display, GTK_TYPE_DRAWING_AREA);
 
@@ -202,7 +201,7 @@ static void draw(GtkWidget *scope, cairo_t *cr)
 				cairo_stroke (cr);
 
 			} else {
-				if (self->flags&CAPTURED_FRAME_FLAG_SEQUENTIAL_CHANNEL) {
+				if (self->flags&DISPLAY_CAPTURE_SEQUENTIAL) {
 
 					unsigned int start;
 
@@ -306,7 +305,7 @@ static void draw(GtkWidget *scope, cairo_t *cr)
 	cairo_show_text(cr, text);
 
 
-	if (self->channels>1 && !(self->flags&CAPTURED_FRAME_FLAG_SEQUENTIAL_CHANNEL)) {
+	if (self->channels>1 && !(self->flags&DISPLAY_CAPTURE_SEQUENTIAL)) {
 		sprintf(text,"fMax/chan: %.02fHz", self->freq/(2*self->channels));
 	} else {
 		sprintf(text,"fMax: %.02fHz", self->freq/2);
