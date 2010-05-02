@@ -59,8 +59,6 @@ struct _KnobClass
 	void (* value_changed)    (Knob     *knob);
 };
 
-
-
 #define KNOB_TYPE             (knob_get_type ())
 #define KNOB(obj)             (G_TYPE_CHECK_INSTANCE_CAST ((obj), KNOB_TYPE, Knob))
 #define KNOB_CLASS(obj)       (G_TYPE_CHECK_CLASS_CAST ((obj), KNOB_TYPE,  KnobClass))
@@ -77,7 +75,6 @@ void knob_set_value(Knob*,double);
 
 void knob_set_validator(Knob *self, long (*validator)(long,Knob*));
 void knob_set_divisions(Knob*self, long divisions);
-long knob_set_divisions(Knob*self);
 GSList *knob_change_division_labels(Knob*self,GSList*list);
 void knob_set_formatter(Knob *self, gchar *(*formatter)(long value, void *), void*data);
 void knob_set_reset_value(Knob *self, long value);

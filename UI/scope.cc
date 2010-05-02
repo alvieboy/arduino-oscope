@@ -50,7 +50,7 @@ static void scope_display_init (ScopeDisplay *scope)
 	scope->scope_xpos = 0;
 	scope->scope_ypos = 0;
 	scope->numSamples = 962;
-        scope->write_screenshot=NULL;
+	scope->write_screenshot=NULL;
 }
 
 GtkWidget *scope_display_new (void)
@@ -292,7 +292,7 @@ static void draw(GtkWidget *scope, cairo_t *cr)
 	cairo_select_font_face (cr, "Helvetica",
 							CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
 
-	double tdiv = (double)self->numSamples*1000.0/10.0 / self->freq;
+	//double tdiv = (double)self->numSamples*1000.0/10.0 / self->freq;
 	//sprintf(text,"tDiv: %.02fms", tdiv / (double)self->zoom);
 	cairo_font_extents(cr, &fe);
 	cairo_text_extents(cr, text, &te);
@@ -373,38 +373,33 @@ void scope_digital_set_data(GtkWidget *scope, unsigned char *data, size_t size)
 }
 
 
-void scope_display_set_data(GtkWidget *scope, unsigned char *data, size_t size)
+void scope_display_set_data(GtkWidget *scope, int num_channels, int channel, int flags, unsigned char *data, size_t size)
 {
 	ScopeDisplay *self = SCOPE_DISPLAY(scope);
 	unsigned char *d = data;
 	int storeChannel = 0;
-	unsigned char flags;
+	unsigned int i;
 
 #ifdef HAVE_DFT
 	unsigned long sum=0;
 	double dc;
 #endif
-	/* First value has number of channels */
-	self->channels = (d[0] & 0x3) + 1;
-	flags = d[1];
+	self->channels = num_channels;
 
-	if (flags&CAPTURED_FRAME_FLAG_SEQUENTIAL_CHANNEL) {
+	if (flags&DISPLAY_CAPTURE_SEQUENTIAL) {
 		// Sequential
-		storeChannel = (d[0]>>2) & 0x03;
+		storeChannel = channel;
 	}
 
-	unsigned int i;
-	d+=2; // Skip flags and channel info
-
-	for (i=2; i<size && i<self->numSamples; i++) {
-		self->dbuf[storeChannel][i-2] = *d;
+	for (i=0; i<size && i<self->numSamples; i++) {
+		self->dbuf[storeChannel][i] = *d;
 #ifdef HAVE_DFT
 		sum+=*d;
 #endif
 		d++;
 	}
 #ifdef HAVE_DFT
-	d = data + 2;
+	d = data;
 
 	dc = (double)sum / (double)self->numSamples;
 
@@ -427,7 +422,7 @@ void scope_display_set_data(GtkWidget *scope, unsigned char *data, size_t size)
 #endif
 	self->flags = flags;
 
-	if (!(flags&CAPTURED_FRAME_FLAG_SEQUENTIAL_CHANNEL) || storeChannel==self->channels-1) {
+	if (!(flags&DISPLAY_CAPTURE_SEQUENTIAL) || storeChannel==self->channels-1) {
 		gtk_widget_queue_draw(scope);
 		scope_finished_waveform(scope);
 	}
@@ -472,27 +467,26 @@ static gboolean scope_finished_waveform(GtkWidget *scope)
 {
 #ifdef HAVE_CAIRO_PNG
 	cairo_surface_t *surface;
-	char *output_png_filename;
 	cairo_t *cr;
-        ScopeDisplay *d = SCOPE_DISPLAY(scope);
+	ScopeDisplay *d = SCOPE_DISPLAY(scope);
 
 	if (d->request_snapshot) {
-            // Redraw
-            if (d->write_screenshot != NULL) {
-	    surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32,
-						 scope->allocation.width,
-						 scope->allocation.height);
-	    cr = cairo_create(surface);
-	    draw (scope, cr);
-            d->write_screenshot(scope, surface);
-            cairo_surface_destroy(surface);
-            cairo_destroy (cr);
-            }
+		// Redraw
+		if (d->write_screenshot != NULL) {
+			surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32,
+												 scope->allocation.width,
+												 scope->allocation.height);
+			cr = cairo_create(surface);
+			draw (scope, cr);
+			d->write_screenshot(scope, surface);
+			cairo_surface_destroy(surface);
+			cairo_destroy (cr);
+		}
 
-	    d->request_snapshot = false;
+		d->request_snapshot = false;
 	}
 #endif
-
+	return true;
 }
 static gboolean scope_display_expose(GtkWidget *scope, GdkEventExpose *event)
 {

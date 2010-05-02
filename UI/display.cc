@@ -89,31 +89,31 @@ static const unsigned pwmdividers[] = { 1,8,64,254,1024 };
 
 int pwm1_value_max_for_freq(double freq, uint8_t *prescale, uint16_t *max)
 {
-    double nTop =  (double)arduino_freq / (2.0*freq);
-    int i;
+	double nTop =  (double)arduino_freq / (2.0*freq);
+	unsigned int i;
 
-    for (i=0; i<(sizeof(pwmdividers)/sizeof(unsigned)); i++) {
-	unsigned count = nTop/pwmdividers[i];
+	for (i=0; i<(sizeof(pwmdividers)/sizeof(unsigned)); i++) {
+		unsigned count = nTop/pwmdividers[i];
 
-	unsigned bits = round(count);
+		unsigned bits = round(count);
 
-	if (bits<=65535)  {
-	    *max = bits;
-	    *prescale = i+1;
-            return 0;
+		if (bits<=65535)  {
+			*max = bits;
+			*prescale = i+1;
+			return 0;
+		}
 	}
-    }
-    return -1;
+	return -1;
 }
 
 void scope_got_pwm1_config(const pwm1_config_t *config)
 {
 	do_apply = FALSE;
 
-        /*
-	if (config->clk>sizeof(pwmdividers))
-		config->clk=0;
-          */
+	/*
+	 if (config->clk>sizeof(pwmdividers))
+	 config->clk=0;
+	 */
 	unsigned divider = pwmdividers[config->clk-1];
 
 	memcpy(&pwm1config, config,sizeof(pwm1_config_t));
@@ -125,7 +125,7 @@ void scope_got_pwm1_config(const pwm1_config_t *config)
 	// pwm1_exponent_base = exp( log(fOCnxPFCPWM)/(double)pwm1_ticks );
 	// log(pwm1_exponent_base) = log(fOCnxPFCPWM)/(double)pwm1_ticks;
 	long pwm1_ticks = log(fOCnxPFCPWM)/log(pwm1_exponent_base);
-	fprintf(stderr,"PWM Ticks: %u\n",pwm1_ticks);
+	fprintf(stderr,"PWM Ticks: %lu\n",pwm1_ticks);
 
 	knob_set_value(KNOB(pwm1_knob_frequency), pwm1_ticks);
 
@@ -135,7 +135,7 @@ void scope_got_pwm1_config(const pwm1_config_t *config)
 	double duty_b = 100.0*config->count_b / config->max;
 
 	knob_set_value(KNOB(pwm1_knob_duty_A), (long)duty_a);
-        knob_set_value(KNOB(pwm1_knob_duty_B), (long)duty_b);
+	knob_set_value(KNOB(pwm1_knob_duty_B), (long)duty_b);
 
 
 	flushEvents();
@@ -146,53 +146,53 @@ unsigned int next_screenshot_index = 0;
 #define SCREENSHOT_BASE "screenshot-"
 void init_screenshot()
 {
-    char cwd[PATH_MAX];
-    DIR *d;
-    struct dirent *ent;
-    char *endp;
+	char cwd[PATH_MAX];
+	DIR *d;
+	struct dirent *ent;
+	char *endp;
 
-    if (getcwd(cwd,sizeof(cwd))==NULL)
-	return;
+	if (getcwd(cwd,sizeof(cwd))==NULL)
+		return;
 
-    d = opendir(cwd);
-    if (d==NULL)
-	return;
+	d = opendir(cwd);
+	if (d==NULL)
+		return;
 
-    while ((ent=readdir(d))!=NULL) {
-	if (strncmp( SCREENSHOT_BASE,ent->d_name,strlen(SCREENSHOT_BASE) )==0) {
-	    char *n = ent->d_name + strlen(SCREENSHOT_BASE);
-            unsigned long v;
-	    if (!*n)
-		break;
-	    v = strtoul(n,&endp,10);
-	    if (endp!=NULL && *endp=='.') {
-		v++;
-                if (v>next_screenshot_index)
-		    next_screenshot_index=v;
-	    }
+	while ((ent=readdir(d))!=NULL) {
+		if (strncmp( SCREENSHOT_BASE,ent->d_name,strlen(SCREENSHOT_BASE) )==0) {
+			char *n = ent->d_name + strlen(SCREENSHOT_BASE);
+			unsigned long v;
+			if (!*n)
+				break;
+			v = strtoul(n,&endp,10);
+			if (endp!=NULL && *endp=='.') {
+				v++;
+				if (v>next_screenshot_index)
+					next_screenshot_index=v;
+			}
+		}
 	}
-    }
 
-    closedir(d);
+	closedir(d);
 }
 
 int write_screenshot(GtkWidget *w, cairo_surface_t*surface)
 {
-    char nextfilename[PATH_MAX];
-    struct stat st;
-    do {
-	sprintf(nextfilename,"%s%04u.png",SCREENSHOT_BASE,next_screenshot_index);
-	
-	if (lstat(nextfilename,&st)==0) {
-	    next_screenshot_index++;
-	    continue;
-	}
-        break;
-    } while(1);
+	char nextfilename[PATH_MAX];
+	struct stat st;
+	do {
+		sprintf(nextfilename,"%s%04u.png",SCREENSHOT_BASE,next_screenshot_index);
 
-    cairo_surface_write_to_png(surface,nextfilename);
-    next_screenshot_index++;
-    return 0;
+		if (lstat(nextfilename,&st)==0) {
+			next_screenshot_index++;
+			continue;
+		}
+		break;
+	} while(1);
+
+	cairo_surface_write_to_png(surface,nextfilename);
+	next_screenshot_index++;
+	return 0;
 }
 
 
@@ -205,7 +205,15 @@ unsigned char current_trigger_level = 0;
 
 void mysetdata(unsigned char *data,size_t size)
 {
-	scope_display_set_data(image,data,size);
+	int channels = (data[0] & 0x3) + 1;
+	int flags = DISPLAY_CAPTURE_NORMAL;
+	int this_channel = 0;
+
+	if (data[1] & CAPTURED_FRAME_FLAG_SEQUENTIAL_CHANNEL) {
+		flags |= DISPLAY_CAPTURE_SEQUENTIAL;
+		this_channel = (data[0]>>2) & 0x03;
+	}
+	scope_display_set_data(image,channels,this_channel,flags,data+2,size-2);
 }
 
 void mydigsetdata(unsigned char *data,size_t size)
@@ -249,7 +257,7 @@ static gchar *pwm1_formatter(long value, void *data)
 static gchar *percentage_formatter(long value, void *data)
 {
 	gchar *ret = NULL;
-	asprintf(&ret,"%u%%", value);
+	asprintf(&ret,"%lu%%", value);
 	return ret;
 }
 
@@ -261,7 +269,7 @@ static gchar *timebase_formatter(long value, void *data)
 	double fsample = get_sample_frequency(arduino_freq, pow(2,value+3));
 	double tdiv = (double)numSamples*100.0 / fsample;
 	fprintf(stderr,"Fsample %f %f %u\n",fsample,tdiv,numSamples);
-	asprintf(&ret,"%.02f ms", tdiv, (int)pow(2,value+3));
+	asprintf(&ret,"%.02f ms", tdiv);
 	return ret;
 }
 
@@ -365,7 +373,7 @@ static gboolean prescaler_changed(GtkWidget *widget)
 	long index = knob_get_value(KNOB(widget));
 
 	long base = index+3;
-	fprintf(stderr,"Set prescaler %u (%u)\n",base, (unsigned)pow(2,base));
+	fprintf(stderr,"Set prescaler %li (%u)\n",base, (unsigned)pow(2,base));
 	if (do_apply)
 		serial_set_prescaler(base);
 

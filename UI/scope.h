@@ -28,10 +28,14 @@
 #endif
 
 typedef enum {
-	MODE_NORMAL,MODE_DFT
+	MODE_NORMAL,
+	MODE_DFT
 } scope_mode_t;
 
+/* Display flags */
 
+#define DISPLAY_CAPTURE_NORMAL     0
+#define DISPLAY_CAPTURE_SEQUENTIAL 1
 
 typedef struct _ScopeDisplay ScopeDisplay;
 typedef struct _ScopeDisplayClass       ScopeDisplayClass;
@@ -59,7 +63,7 @@ struct _ScopeDisplay
 	unsigned border;
 	int flags;
 #ifdef HAVE_CAIRO_PNG
-        bool request_snapshot;
+	bool request_snapshot;
 	int (*write_screenshot)(GtkWidget *,cairo_surface_t*);
 #endif
 	/* Cached values. */
@@ -80,7 +84,11 @@ struct _ScopeDisplayClass
 #define SCOPE_DISPLAY_GET_CLASS        (G_TYPE_INSTANCE_GET_CLASS ((obj), SCOPE_DISPLAY_TYPE, ScopeDisplayClass))
 
 GtkWidget *scope_display_new (void);
-void scope_display_set_data(GtkWidget *scope, unsigned char *data, size_t size);
+void scope_display_set_data(GtkWidget *scope,
+							int num_channels,
+							int channel,
+							int flags,
+							unsigned char *data, size_t size);
 void scope_display_set_trigger_level(GtkWidget *scope, unsigned char level);
 void scope_display_set_zoom(GtkWidget *scope, unsigned int zoom);
 void scope_display_set_samples(GtkWidget *scope, unsigned short numSamples);
