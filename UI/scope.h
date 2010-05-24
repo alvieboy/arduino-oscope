@@ -63,7 +63,7 @@ struct _ScopeDisplay
 	unsigned border;
 	int flags;
 #ifdef HAVE_CAIRO_PNG
-	bool request_snapshot;
+	gboolean request_snapshot;
 	int (*write_screenshot)(GtkWidget *,cairo_surface_t*);
 #endif
 	/* Cached values. */

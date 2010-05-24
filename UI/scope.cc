@@ -206,7 +206,7 @@ static void draw(GtkWidget *scope, cairo_t *cr)
 					unsigned int start;
 
 					for (start=0; start<self->channels; start++) {
-						gboolean firstsample = true;
+						gboolean firstsample = TRUE;
 
 						cairo_set_source_rgb(cr, colors[start].r,colors[start].g,colors[start].b);
 
@@ -239,7 +239,7 @@ static void draw(GtkWidget *scope, cairo_t *cr)
 							if (!firstsample) {
 								cairo_line_to(cr,lx,ly);
 							} else {
-								firstsample=false;
+								firstsample=FALSE;
 							}
 						}
 						cairo_stroke (cr);
@@ -251,7 +251,7 @@ static void draw(GtkWidget *scope, cairo_t *cr)
 				} else {
 					unsigned int start;
 					for (start=0; start<self->channels; start++) {
-						gboolean firstsample = true;
+						gboolean firstsample = TRUE;
 						cairo_set_source_rgb(cr, colors[start].r,colors[start].g,colors[start].b);
 
 						lx=self->scope_xpos + start;
@@ -274,7 +274,7 @@ static void draw(GtkWidget *scope, cairo_t *cr)
 							if (!firstsample) {
 								cairo_line_to(cr,lx,ly);
 							} else {
-								firstsample=false;
+								firstsample=FALSE;
 							}
 						}
 						cairo_stroke (cr);
@@ -482,10 +482,10 @@ static gboolean scope_finished_waveform(GtkWidget *scope)
 			cairo_destroy (cr);
 		}
 
-		d->request_snapshot = false;
+		d->request_snapshot = FALSE;
 	}
 #endif
-	return true;
+	return TRUE;
 }
 static gboolean scope_display_expose(GtkWidget *scope, GdkEventExpose *event)
 {
