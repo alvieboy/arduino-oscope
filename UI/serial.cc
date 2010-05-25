@@ -84,11 +84,16 @@ public:
 	}
 };
 
+struct HDLCConfig: public HDLC_DefaultConfig
+{
+	static unsigned int const stationId = 0xFF; /* Only for HDLC */
+};
+
 struct SerProConfig {
 	static unsigned int const maxFunctions = 128;
 	static unsigned int const maxPacketSize = 1024;
-	static unsigned int const stationId = 0xFF; /* Only for HDLC */
 	static SerProImplementationType const implementationType = Master;
+	typedef HDLCConfig HDLC;
 };
 
 DECLARE_SERPRO_WITH_TIMER( SerProConfig, SerialWrapper, SerProHDLC, GLIBTimer, SerPro);

@@ -46,14 +46,19 @@ public:
 	}
 };
 
-// 4 functions
-// 32 bytes maximum receive buffer size
+struct HDLCConfig: public HDLC_DefaultConfig
+{
+	static unsigned int const stationId = 3;
+};
+
+// 16 functions
+// 16 bytes maximum receive buffer size
 
 struct SerProConfig {
 	static unsigned int const maxFunctions = 16;
 	static unsigned int const maxPacketSize = 16;
-	static unsigned int const stationId = 3;
 	static SerProImplementationType const implementationType = Slave;
+	typedef HDLCConfig HDLC; /* HDLC configuration */
 };
 
 // SerialWrapper is class to handle tx
