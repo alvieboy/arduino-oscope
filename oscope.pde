@@ -21,8 +21,7 @@
 #include <avr/power.h>
 #include <avr/interrupt.h>
 #include "protocol.h"
-#include "SerPro.h"
-#include "SerProHDLC.h"
+#include "SerProArduino.h"
 
 #undef TEST_CHANNELS
 
@@ -33,39 +32,10 @@ static const uint32_t freq = 16000000;
 static const uint16_t avcc = 5000; // 5v
 static const uint16_t vref = 5000; // 5v
 
-struct SerialWrapper
-{
-public:
-	static inline void write(uint8_t v) {
-		Serial.write(v);
-	}
-	static inline void write(const uint8_t *buf,int size) {
-		Serial.write(buf,size);
-	}
-	static void flush() {
-	}
-};
+/* #define SERPRO_ARDUINO_MAXFUNCTIONS 16 // Change maxfunctions if needed */
+/* #define SERPRO_ARDUINO_BUFFERSIZE 16   // Change max buffer size if needed */
 
-struct HDLCConfig: public HDLC_DefaultConfig
-{
-	static unsigned int const stationId = 3;
-};
-
-// 16 functions
-// 16 bytes maximum receive buffer size
-
-struct SerProConfig {
-	static unsigned int const maxFunctions = 16;
-	static unsigned int const maxPacketSize = 16;
-	static SerProImplementationType const implementationType = Slave;
-	typedef HDLCConfig HDLC; /* HDLC configuration */
-};
-
-// SerialWrapper is class to handle tx
-// Name of class is SerPro
-// Protocol type is SerProPacket or SerProHDLC
-
-DECLARE_SERPRO(SerProConfig,SerialWrapper,SerProHDLC,SerPro);
+SERPRO_ARDUINO_BEGIN(); /* Instantiate first part of serpro */
 
 /* Data buffer, where we store our samples. Allocated dinamically */
 static unsigned char *dataBuffer;
@@ -374,12 +344,12 @@ ISR(ADC_vect)
 }
 
 
-template<> void handleEvent<START_FRAME>()
+SERPRO_EVENT(START_FRAME)
 {
 	digitalWrite(ledPin,1);
 }
 
-template<> void handleEvent<END_FRAME>()
+SERPRO_EVENT(END_FRAME)
 {
 	digitalWrite(ledPin,0);
 }
@@ -499,4 +469,4 @@ DECLARE_FUNCTION(COMMAND_GET_PWM1)(void)
 }
 END_FUNCTION
 
-IMPLEMENT_SERPRO(16,SerPro,SerProHDLC);
+SERPRO_ARDUINO_END(); /* Instantiate remaining of serpro */
