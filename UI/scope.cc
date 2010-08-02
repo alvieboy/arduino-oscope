@@ -44,8 +44,10 @@ static void scope_display_init (ScopeDisplay *scope)
 	scope->dbuf_output = NULL;
 #endif
 	int i;
-	for (i=0;i<4;i++)
+	for (i=0;i<4;i++) {
 		scope->chancfg[i].gain=1.0;
+		scope->chancfg[i].invert=false;
+	}
 	scope->scope_xpos = 0;
 	scope->scope_ypos = 0;
 	scope->numSamples = 962;
@@ -227,8 +229,13 @@ static void draw(GtkWidget *scope, cairo_t *cr)
 							cairo_move_to(cr,lx,ly);
 
 							lx=self->scope_xpos + i*self->zoom;
-							ly=self->scope_ypos + self->analog_height - ((double)self->dbuf[start][i]*(double)self->chancfg[start].gain)
-								- (double)self->chancfg[start].ypos;
+							if (self->chancfg[start].invert) {
+								ly=self->scope_ypos + self->analog_height - ((double)(255-self->dbuf[start][i])*(double)self->chancfg[start].gain)
+									- (double)self->chancfg[start].ypos;
+							} else {
+								ly=self->scope_ypos + self->analog_height - ((double)(self->dbuf[start][i])*(double)self->chancfg[start].gain)
+									- (double)self->chancfg[start].ypos;
+							}
 
 							if (ly>(self->scope_ypos+self->analog_height-1))
 								ly=self->scope_ypos+self->analog_height-1;
@@ -371,7 +378,6 @@ void scope_digital_set_data(GtkWidget *scope, unsigned char *data, size_t size)
 {
 }
 
-
 void scope_display_set_data(GtkWidget *scope, int num_channels, int channel, int flags, unsigned char *data, size_t size)
 {
 	ScopeDisplay *self = SCOPE_DISPLAY(scope);
@@ -453,12 +459,14 @@ void scope_display_set_channel_config(GtkWidget *scope,
 									  int channel,
 									  int xpos,
 									  int ypos,
-                                      double gain)
+									  double gain,
+									  bool invert)
 {
 	ScopeDisplay *self = SCOPE_DISPLAY(scope);
 	self->chancfg[channel].xpos=xpos;
 	self->chancfg[channel].ypos=ypos;
 	self->chancfg[channel].gain=gain;
+	self->chancfg[channel].invert=invert;
 	gtk_widget_queue_draw(scope);
 }
 

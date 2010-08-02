@@ -4,6 +4,8 @@ AC_PROG_CXX
 PKG_PROG_PKG_CONFIG
 PKG_CHECK_MODULES(gtk,gtk+-2.0,,AC_ERROR([You need GTK+ 2.0]))
 PKG_CHECK_MODULES(cairo,cairo-xlib)
+PKG_CHECK_MODULES(serpro,serpro)
+
 # PKG_CHECK_MODULES(sigc,sigc++-2.0)
 PKG_CHECK_MODULES(fftw3,fftw3,AC_DEFINE(HAVE_DFT,[],[Define this if you have FFTW3 library]),
 [AC_MSG_RESULT([No ffwt3 found, disabling FFT support])

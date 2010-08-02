@@ -5,9 +5,9 @@ CXX=g++-4.3
 CXXFLAGS=-O2 -Wall -g @gtk_CFLAGS@ @cairo_CFLAGS@ @fftw3_CFLAGS@ @cairo_png_CFLAGS@
 LDFLAGS=-g
 
-LIBS=@gtk_LIBS@ @cairo_LIBS@ @fftw3_LIBS@ @cairo_png_LIBS@
+LIBS=@gtk_LIBS@ @cairo_LIBS@ @fftw3_LIBS@ @cairo_png_LIBS@ @serpro_LIBS@
 
-OBJECTS= display.o scope.o serial.o knob.o ../crc16.o
+OBJECTS= display.o scope.o serial.o knob.o 
 
 oscope: $(OBJECTS)
 	$(CXX) $(LDFLAGS) -o oscope $+ $(LIBS)

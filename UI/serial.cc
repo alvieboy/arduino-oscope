@@ -26,8 +26,8 @@
 #include <sys/ioctl.h>
 #include "serial.h"
 #include "../protocol.h"
-#include "../SerPro.h"
-#include "../SerProHDLC.h"
+#include <SerPro/SerPro.h>
+#include <SerPro/SerProHDLC.h>
 // #include <sigc++/sigc++.h> // LATER
 
 static int fd = -1;
