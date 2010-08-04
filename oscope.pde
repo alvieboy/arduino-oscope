@@ -46,8 +46,8 @@ static unsigned char *storePtr,*endPtr;
 
 /* Auto-trigger samples. If we don't trigger and we reach this number of
  samples without triggerting, then we trigger */
-static unsigned char autoTrigSamples;
-static unsigned char autoTrigCount;
+static unsigned int autoTrigSamples;
+static unsigned int autoTrigCount;
 
 static unsigned char currentChannel=0;
 
@@ -164,7 +164,7 @@ void setup()
 	dataBuffer=NULL;
 	params.triggerLevel=0;
 	params.flags = FLAG_CHANNEL_SEQUENTIAL;
-	autoTrigSamples = 255;
+	autoTrigSamples = 1<<14;
 	autoTrigCount = 0;
 	params.holdoffSamples = 0;
 	params.channels = 0;
@@ -386,7 +386,7 @@ DECLARE_FUNCTION(COMMAND_SET_PRESCALER)(uint8_t val) {
 }
 END_FUNCTION
 
-DECLARE_FUNCTION(COMMAND_SET_AUTOTRIG)(uint8_t val) {
+DECLARE_FUNCTION(COMMAND_SET_AUTOTRIG)(uint16_t val) {
 	autoTrigSamples = val;
 	autoTrigCount = 0; // Reset.
 }

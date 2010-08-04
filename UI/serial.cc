@@ -119,7 +119,7 @@ enum mystate {
 	PING,
 	GETVERSION,
 	GETCONSTANTS,
-        GETPWM1CONFIG,
+	GETPWM1CONFIG,
 	GETPARAMETERS,
 	SAMPLING
 };
@@ -414,7 +414,7 @@ void serial_set_oneshot( void(*callback)(void*), void*data )
 		tvalue=100;
 	}
 
-	SerPro::sendPacket<uint8_t>(COMMAND_SET_AUTOTRIG,tvalue);
+	SerPro::sendPacket<uint16_t>(COMMAND_SET_AUTOTRIG,tvalue);
 
 	if (NULL==oneshot_cb && !in_request) {
 		SerPro::sendPacket(COMMAND_START_SAMPLING);
