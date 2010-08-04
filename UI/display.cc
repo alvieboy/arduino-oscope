@@ -41,6 +41,7 @@ cairo_t *cr;
 
 GtkWidget *knob_trigger;
 GtkWidget *knob_holdoff;
+GtkWidget *knob_autotrigger;
 GtkWidget *combo_vref;
 GtkWidget *set_chan[4];
 GtkWidget *shot_button;
@@ -301,7 +302,8 @@ void scope_got_parameters(unsigned char triggerLevel,
 						  unsigned char prescale,
 						  unsigned short numS,
 						  unsigned char flags,
-						  unsigned char num_channels)
+						  unsigned char num_channels,
+						  unsigned short autotriggerSamples)
 {
 	do_apply = FALSE;
 
@@ -313,6 +315,7 @@ void scope_got_parameters(unsigned char triggerLevel,
 
 	knob_set_value(KNOB(knob_trigger),triggerLevel);
 	knob_set_value(KNOB(knob_holdoff),holdoffSamples);
+	knob_set_value(KNOB(knob_autotrigger),autotriggerSamples);
 
 	switch(adcref) {
 	case 0:
@@ -356,6 +359,15 @@ static gboolean holdoff_level_changed(GtkWidget *widget)
 	int l = (int)knob_get_value(KNOB(widget));
 	if (do_apply)
 		serial_set_holdoff(l & 0xff);
+
+	return TRUE;
+}
+
+static gboolean autotrigger_level_changed(GtkWidget *widget)
+{
+	int l = (int)knob_get_value(KNOB(widget));
+	if (do_apply)
+		serial_set_autotrigger(l & 0xffff);
 
 	return TRUE;
 }
@@ -515,11 +527,19 @@ void channel_changed_gain(GtkWidget *knob, struct channelConfig *conf)
 	conf->gain = knob_get_value(KNOB(knob))/100.0;
 }
 
+void channel_changed_invert(GtkWidget *knob, struct channelConfig *conf)
+{
+	conf->invert = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(knob));
+}
+
 GtkWidget *create_channel(const gchar *name, struct channelConfig *chanConfig)
 {
 	GtkWidget *frame = gtk_frame_new(name);
 
+	GtkWidget *vbox = gtk_vbox_new(FALSE,4);
+
 	GtkWidget *hbox = gtk_hbox_new(FALSE,4);
+	GtkWidget *inv = gtk_check_button_new_with_label("Inv");
 
 	GtkWidget *pos=knob_new_with_range("Y-POS",-255,255,1,10,0);
 	gtk_box_pack_start(GTK_BOX(hbox),pos,TRUE,TRUE,0);
@@ -533,7 +553,13 @@ GtkWidget *create_channel(const gchar *name, struct channelConfig *chanConfig)
 	gtk_box_pack_start(GTK_BOX(hbox),pos,TRUE,TRUE,0);
 	g_signal_connect(G_OBJECT(pos),"value-changed",G_CALLBACK(&channel_changed_gain),chanConfig);
 
-	gtk_container_add(GTK_CONTAINER(frame), hbox);
+	gtk_box_pack_start(GTK_BOX(vbox),hbox,TRUE,TRUE,0);
+	gtk_box_pack_start(GTK_BOX(vbox),inv,TRUE,TRUE,0);
+
+	g_signal_connect(G_OBJECT(inv),"toggled",G_CALLBACK(&channel_changed_invert),chanConfig);
+
+
+	gtk_container_add(GTK_CONTAINER(frame), vbox);
 	return frame;
 }
 
@@ -738,6 +764,10 @@ int main(int argc,char **argv)
 	knob_holdoff= knob_new_with_range("HOLD",0,255,1,10,0);
 	gtk_box_pack_start(GTK_BOX(hbox),knob_holdoff,TRUE,TRUE,0);
 	g_signal_connect(G_OBJECT(knob_holdoff),"value-changed",G_CALLBACK(&holdoff_level_changed),NULL);
+
+	knob_autotrigger= knob_new_with_range("AT",0,65535,1,10,0);
+	gtk_box_pack_start(GTK_BOX(hbox),knob_autotrigger,TRUE,TRUE,0);
+	g_signal_connect(G_OBJECT(knob_autotrigger),"value-changed",G_CALLBACK(&autotrigger_level_changed),NULL);
 
 	gtk_container_add(GTK_CONTAINER(frame), hbox);
 

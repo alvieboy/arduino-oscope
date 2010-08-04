@@ -46,7 +46,6 @@ static unsigned char *storePtr,*endPtr;
 
 /* Auto-trigger samples. If we don't trigger and we reach this number of
  samples without triggerting, then we trigger */
-static unsigned int autoTrigSamples;
 static unsigned int autoTrigCount;
 
 static unsigned char currentChannel=0;
@@ -164,7 +163,7 @@ void setup()
 	dataBuffer=NULL;
 	params.triggerLevel=0;
 	params.flags = FLAG_CHANNEL_SEQUENTIAL;
-	autoTrigSamples = 1<<14;
+	params.autoTrigSamples = 1<<14;
 	autoTrigCount = 0;
 	params.holdoffSamples = 0;
 	params.channels = 0;
@@ -259,7 +258,7 @@ ISR(ADC_vect)
 			return;
 		}
 
-		if (autoTrigCount>0 && autoTrigCount >= autoTrigSamples ) {
+		if (autoTrigCount>0 && autoTrigCount >= params.autoTrigSamples ) {
 			flags |= BYTE_FLAG_TRIGGERED;
 			capturedFrameFlags|=CAPTURED_FRAME_FLAG_AUTOTRIGGERED;
 			goto do_switch_channel;

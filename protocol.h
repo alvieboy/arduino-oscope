@@ -66,6 +66,7 @@ typedef struct {
 	uint16_t numSamples;
 	uint8_t flags;
 	uint8_t channels;
+	uint16_t autotriggerSamples;
 } __attribute__((packed)) parameters_t;
 
 typedef struct {

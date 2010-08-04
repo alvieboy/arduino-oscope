@@ -39,6 +39,7 @@ static gboolean freeze = FALSE;
 static gboolean delay_request = FALSE;
 static gboolean is_trigger_invert;
 static gboolean is_seq_channel;
+static parameters_t lastParameters;
 
 static void (*sdata)(unsigned char *data,size_t size);
 static void (*sdigdata)(unsigned char *data,size_t size);
@@ -107,7 +108,8 @@ extern void scope_got_parameters(unsigned char triggerLevel,
 								 unsigned char prescale,
 								 unsigned short numSamples,
 								 unsigned char flags,
-								 unsigned char numChannels);
+								 unsigned char numChannels,
+								 unsigned short autotrigSamples);
 
 
 extern void scope_got_pwm1_config(const pwm1_config_t *config);
@@ -137,6 +139,7 @@ END_FUNCTION
 
 DECLARE_FUNCTION(COMMAND_PARAMETERS_REPLY)(const parameters_t *p)
 {
+	lastParameters = *p;
 	is_trigger_invert = p->flags & FLAG_INVERT_TRIGGER;
 	is_seq_channel = p->flags & FLAG_CHANNEL_SEQUENTIAL;
 
@@ -164,7 +167,8 @@ DECLARE_FUNCTION(COMMAND_PARAMETERS_REPLY)(const parameters_t *p)
 						 p->prescale,
 						 p->numSamples,
 						 p->flags,
-						 p->channels
+						 p->channels,
+						 p->autotriggerSamples
 						);
 
 	if (state==GETPARAMETERS) {
@@ -279,6 +283,10 @@ void serial_set_trigger_level(uint8_t trig)
 void serial_set_holdoff(unsigned char holdoff)
 {
 	SerPro::sendPacket(COMMAND_SET_HOLDOFF,holdoff);
+}
+void serial_set_autotrigger(unsigned short autotrig)
+{
+	SerPro::sendPacket(COMMAND_SET_AUTOTRIG,autotrig);
 }
 
 int real_serial_init(char *device)
@@ -411,7 +419,7 @@ void serial_set_oneshot( void(*callback)(void*), void*data )
 	if (oneshot_cb) {
 		tvalue=0;
 	} else {
-		tvalue=100;
+		tvalue=lastParameters.autotriggerSamples;
 	}
 
 	SerPro::sendPacket<uint16_t>(COMMAND_SET_AUTOTRIG,tvalue);
