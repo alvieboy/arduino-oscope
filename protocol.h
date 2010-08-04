@@ -23,7 +23,7 @@
 
 /* Our version */
 #define PROTOCOL_VERSION_HIGH 0x04
-#define PROTOCOL_VERSION_LOW  0x03
+#define PROTOCOL_VERSION_LOW  0x04
 
 /* Serial commands we support */
 #define COMMAND_GET_VERSION    0x00
@@ -73,7 +73,7 @@ typedef struct {
 	uint8_t clk;
 	uint16_t max;
 	uint16_t count_a;
-        uint16_t count_b;
+	uint16_t count_b;
 } __attribute__((packed)) pwm1_config_t;
 
 #endif
