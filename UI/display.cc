@@ -443,6 +443,13 @@ static void trigger_toggle_changed(GtkWidget *widget)
 		serial_set_trigger_invert(active);
 }
 
+static void trigger_external_toggle_changed(GtkWidget *widget)
+{
+	gboolean active = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
+	if (do_apply)
+		serial_set_trigger_external(active);
+}
+
 static void channels_changed(GtkWidget *widget)
 {
 	long v = knob_get_value(KNOB(widget));
@@ -529,6 +536,7 @@ void channel_changed_gain(GtkWidget *knob, struct channelConfig *conf)
 
 void channel_changed_invert(GtkWidget *knob, struct channelConfig *conf)
 {
+	fprintf(stderr,"Tooggle inv\n");
 	conf->invert = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(knob));
 }
 
@@ -842,7 +850,12 @@ int main(int argc,char **argv)
 	gtk_box_pack_start(GTK_BOX(hbox),tog,TRUE,TRUE,0);
 	g_signal_connect(G_OBJECT(tog),"toggled",G_CALLBACK(&trigger_toggle_changed),NULL);
 
-        init_screenshot();
+	GtkWidget *extt = gtk_check_button_new_with_label("External trigger");
+	gtk_box_pack_start(GTK_BOX(hbox),extt,TRUE,TRUE,0);
+	g_signal_connect(G_OBJECT(extt),"toggled",G_CALLBACK(&trigger_external_toggle_changed),NULL);
+
+	init_screenshot();
+
 	scope_set_snapshot_function(image,&write_screenshot);
 	voltage_changed();
 

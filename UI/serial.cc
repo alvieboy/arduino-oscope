@@ -38,6 +38,7 @@ static gboolean in_request;
 static gboolean freeze = FALSE;
 static gboolean delay_request = FALSE;
 static gboolean is_trigger_invert;
+static gboolean is_trigger_external;
 static gboolean is_seq_channel;
 static parameters_t lastParameters;
 
@@ -54,7 +55,6 @@ public:
 		GError *error = NULL;
 		gsize written;
 		g_io_channel_write_chars(channel,(const gchar*)&v,sizeof(v),&written,&error);
-		fprintf(stderr,"> %u\n",v);
 	}
 
 	static void write(const unsigned char *buf, unsigned int size) {
@@ -168,7 +168,7 @@ DECLARE_FUNCTION(COMMAND_PARAMETERS_REPLY)(const parameters_t *p)
 						 p->numSamples,
 						 p->flags,
 						 p->channels,
-						 p->autotriggerSamples
+						 p->autoTrigSamples
 						);
 
 	if (state==GETPARAMETERS) {
@@ -225,6 +225,7 @@ void handleEvent<LINK_UP>() {
 	state = GETVERSION;
 }
 
+#if 0
 
 template<>
 void Dumper<1>(const unsigned char *buffer,size_t size)
@@ -237,6 +238,8 @@ void Dumper<1>(const unsigned char *buffer,size_t size)
 	}
 	fprintf(stderr,"\n");
 }
+
+#endif
 
 
 /*
@@ -373,6 +376,8 @@ static void set_flags()
 
 	if (is_trigger_invert)
 		c|=FLAG_INVERT_TRIGGER;
+	if (is_trigger_external)
+		c|=FLAG_TRIGGER_EXTERNAL;
 	if (is_seq_channel)
 		c|=FLAG_CHANNEL_SEQUENTIAL;
 
@@ -387,6 +392,12 @@ void serial_set_sequential_channel(gboolean isseq)
 void serial_set_trigger_invert(gboolean active)
 {
 	is_trigger_invert = active;
+	set_flags();
+}
+
+void serial_set_trigger_external(gboolean active)
+{
+	is_trigger_external = active;
 	set_flags();
 }
 void serial_set_channels(int channels)
@@ -419,7 +430,7 @@ void serial_set_oneshot( void(*callback)(void*), void*data )
 	if (oneshot_cb) {
 		tvalue=0;
 	} else {
-		tvalue=lastParameters.autotriggerSamples;
+		tvalue=lastParameters.autoTrigSamples;
 	}
 
 	SerPro::sendPacket<uint16_t>(COMMAND_SET_AUTOTRIG,tvalue);

@@ -229,6 +229,7 @@ static void draw(GtkWidget *scope, cairo_t *cr)
 							cairo_move_to(cr,lx,ly);
 
 							lx=self->scope_xpos + i*self->zoom;
+                            
 							if (self->chancfg[start].invert) {
 								ly=self->scope_ypos + self->analog_height - ((double)(255-self->dbuf[start][i])*(double)self->chancfg[start].gain)
 									- (double)self->chancfg[start].ypos;
@@ -269,9 +270,15 @@ static void draw(GtkWidget *scope, cairo_t *cr)
 							cairo_move_to(cr,lx,ly);
 
 							lx=self->scope_xpos + i*self->zoom;
-							ly=self->scope_ypos + self->analog_height - ((double)self->dbuf[0][i]*(double)self->chancfg[start].gain)
-								- (double)self->chancfg[start].ypos;
 
+							if (self->chancfg[start].invert) {
+								ly=self->scope_ypos + self->analog_height - ((255.0-(double)self->dbuf[0][i])*(double)self->chancfg[start].gain)
+									- (double)self->chancfg[start].ypos;
+
+							} else {
+								ly=self->scope_ypos + self->analog_height - ((double)self->dbuf[0][i]*(double)self->chancfg[start].gain)
+									- (double)self->chancfg[start].ypos;
+							}
 							if (ly>(self->scope_ypos+self->analog_height-1))
 								ly=self->scope_ypos+self->analog_height-1;
 

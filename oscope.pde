@@ -173,6 +173,7 @@ void setup()
 	Serial.begin(BAUD_RATE);
 	pinMode(ledPin,OUTPUT);
 	pinMode(sampleFreqPin,OUTPUT);
+    pinMode(53,INPUT);
 	setup_adc();
 
         /* PWM1 outputs */
@@ -207,7 +208,7 @@ void loop()
 		params.flags &= ~ BYTE_FLAG_CONVERSIONDONE;
 		sei();
 		stop_adc();
-
+		//digitalWrite(ledPin, digitalRead(53) );
 		uint8_t ch = maxChannels;
 
 		if (params.flags & FLAG_CHANNEL_SEQUENTIAL) {
@@ -236,6 +237,7 @@ void loop()
 }
 
 uint8_t last = 0;
+uint8_t lastExtTrig = 0;
 uint8_t holdoff;
 
 #ifdef TEST_CHANNELS
@@ -251,91 +253,103 @@ ISR(ADC_vect)
 	if (flags&BYTE_FLAG_TRIGGERED)
 		goto is_trigger; /* Fast path */
 
-	if (params.triggerLevel>0) {
+	if (!(flags & FLAG_TRIGGER_EXTERNAL)) {
+		if (params.triggerLevel>0) {
 
-		if (holdoff>0) {
-			holdoff--;
-			return;
-		}
-
-		if (autoTrigCount>0 && autoTrigCount >= params.autoTrigSamples ) {
-			flags |= BYTE_FLAG_TRIGGERED;
-			capturedFrameFlags|=CAPTURED_FRAME_FLAG_AUTOTRIGGERED;
-			goto do_switch_channel;
-		} else {
-			if (!(flags&FLAG_INVERT_TRIGGER)) {
-				if (sampled>=params.triggerLevel && last<params.triggerLevel) {
-					flags|= BYTE_FLAG_TRIGGERED;
-					goto do_switch_channel;
-				}
-			} else {
-				if (sampled<=params.triggerLevel && last>params.triggerLevel) {
-					flags|= BYTE_FLAG_TRIGGERED;
-					goto do_switch_channel;
-				}
+			if (holdoff>0) {
+				holdoff--;
+				return;
 			}
-			if (autoTrigSamples>0)
-				autoTrigCount++;
+
+			if (autoTrigCount>0 && autoTrigCount >= params.autoTrigSamples ) {
+				flags |= BYTE_FLAG_TRIGGERED;
+				capturedFrameFlags|=CAPTURED_FRAME_FLAG_AUTOTRIGGERED;
+				goto do_switch_channel;
+			} else {
+				if (!(flags&FLAG_INVERT_TRIGGER)) {
+					if (sampled>=params.triggerLevel && last<params.triggerLevel) {
+						flags|= BYTE_FLAG_TRIGGERED;
+						goto do_switch_channel;
+					}
+				} else {
+					if (sampled<=params.triggerLevel && last>params.triggerLevel) {
+						flags|= BYTE_FLAG_TRIGGERED;
+						goto do_switch_channel;
+					}
+				}
+				if (params.autoTrigSamples>0)
+					autoTrigCount++;
+			}
+		} else {
+			flags |= BYTE_FLAG_TRIGGERED;
+			goto do_switch_channel;
 		}
 	} else {
-		flags |= BYTE_FLAG_TRIGGERED;
-		goto do_switch_channel;
+		// External trigger
+		if ( digitalRead(53) ^ lastExtTrig ) {
+			flags |= BYTE_FLAG_TRIGGERED;
+			goto do_switch_channel;			
+		}
 	}
 
 	if (flags & BYTE_FLAG_TRIGGERED) {
-	is_trigger:
+		is_trigger:
 
-		if (flags & BYTE_FLAG_STARTCONVERSION) {
-			flags |= BYTE_FLAG_STOREDATA;
-			goto do_store;
-		}
-
-		if (flags & BYTE_FLAG_STOREDATA) {
-		do_store:
-#ifdef TEST_CHANNELS
-			*storePtr++ = 10+((admux_dly&0x7)<<4);
-			//*storePtr++ = currentChannel<<6;
-#else
-			*storePtr++ = sampled;
-#endif
-			// Switch channel.
-		do_switch_channel:
-			if (flags & FLAG_CHANNEL_SEQUENTIAL) {
-			} else {
-				if (currentChannel<maxChannels)
-					currentChannel++;
-				else
-					currentChannel=0;
+			if (flags & BYTE_FLAG_STARTCONVERSION) {
+				flags |= BYTE_FLAG_STOREDATA;
+				goto do_store;
 			}
-#ifdef TEST_CHANNELS
-			admux_dly = inadmux;
-#endif
-			inadmux &= 0xf8;
-			inadmux |= currentChannel;
-		}
-
-		if (storePtr == endPtr) {
 
 			if (flags & BYTE_FLAG_STOREDATA) {
-				flags |= BYTE_FLAG_CONVERSIONDONE;
-				flags &= ~BYTE_FLAG_STARTCONVERSION;
+			do_store:
+#ifdef TEST_CHANNELS
+				*storePtr++ = 10+((admux_dly&0x7)<<4);
+				//*storePtr++ = currentChannel<<6;
+#else
+				*storePtr++ = sampled;
+#endif
+				// Switch channel.
+			do_switch_channel:
+				if (flags & FLAG_CHANNEL_SEQUENTIAL) {
+				} else {
+					if (currentChannel<maxChannels)
+						currentChannel++;
+					else
+						currentChannel=0;
+				}
+#ifdef TEST_CHANNELS
+				admux_dly = inadmux;
+#endif
+				inadmux &= 0xf8;
+				inadmux |= currentChannel;
 			}
 
-			flags &= ~BYTE_FLAG_STOREDATA;
-			flags &= ~BYTE_FLAG_TRIGGERED;
-			// Reset muxer
-			inadmux &= 0xf8;
-			holdoff=params.holdoffSamples;
-			autoTrigCount=0;
-			if (flags & FLAG_CHANNEL_SEQUENTIAL) {
-				capturedFrameFlags |= CAPTURED_FRAME_FLAG_SEQUENTIAL_CHANNEL;
+			if (storePtr == endPtr) {
+
+				if (flags & BYTE_FLAG_STOREDATA) {
+					flags |= BYTE_FLAG_CONVERSIONDONE;
+					flags &= ~BYTE_FLAG_STARTCONVERSION;
+				}
+
+				flags &= ~BYTE_FLAG_STOREDATA;
+				flags &= ~BYTE_FLAG_TRIGGERED;
+				// Reset muxer
+				inadmux &= 0xf8;
+				holdoff=params.holdoffSamples;
+				autoTrigCount=0;
+				if (flags & FLAG_CHANNEL_SEQUENTIAL) {
+					capturedFrameFlags |= CAPTURED_FRAME_FLAG_SEQUENTIAL_CHANNEL;
+				}
+				//currentChannel=0;
+				last=0;
+				lastExtTrig=0;
+
+				if (!(flags&FLAG_INVERT_TRIGGER)) {
+					last--;
+                    lastExtTrig=1;
+				}
 			}
-			//currentChannel=0;
-			last=0;
-			if (!(flags&FLAG_INVERT_TRIGGER))
-				last--;
-		}
-		ADMUX=inadmux;
+			ADMUX=inadmux;
 	} else {
 		last=sampled;
 	}
@@ -345,12 +359,12 @@ ISR(ADC_vect)
 
 SERPRO_EVENT(START_FRAME)
 {
-	digitalWrite(ledPin,1);
+	//digitalWrite(ledPin,1);
 }
 
 SERPRO_EVENT(END_FRAME)
 {
-	digitalWrite(ledPin,0);
+	//digitalWrite(ledPin,0);
 }
 
 DECLARE_FUNCTION(COMMAND_GET_VERSION)(void) {
@@ -386,7 +400,7 @@ DECLARE_FUNCTION(COMMAND_SET_PRESCALER)(uint8_t val) {
 END_FUNCTION
 
 DECLARE_FUNCTION(COMMAND_SET_AUTOTRIG)(uint16_t val) {
-	autoTrigSamples = val;
+	params.autoTrigSamples = val;
 	autoTrigCount = 0; // Reset.
 }
 END_FUNCTION
@@ -424,8 +438,8 @@ END_FUNCTION
 
 DECLARE_FUNCTION(COMMAND_SET_FLAGS)(uint8_t val) {
 	cli();
-	params.flags &= ~(FLAG_INVERT_TRIGGER|FLAG_CHANNEL_SEQUENTIAL);
-	val &= (FLAG_INVERT_TRIGGER|FLAG_CHANNEL_SEQUENTIAL);
+	params.flags &= ~(FLAG_INVERT_TRIGGER|FLAG_CHANNEL_SEQUENTIAL|FLAG_TRIGGER_EXTERNAL);
+	val &= (FLAG_INVERT_TRIGGER|FLAG_CHANNEL_SEQUENTIAL|FLAG_TRIGGER_EXTERNAL);
 	params.flags |= val;
 	sei();
 	send_parameters();

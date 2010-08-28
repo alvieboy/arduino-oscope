@@ -31,6 +31,7 @@ void serial_set_autotrigger(unsigned short autotrig);
 void serial_set_prescaler(unsigned char prescaler);
 void serial_set_vref(unsigned char vref);
 void serial_set_trigger_invert(gboolean active);
+void serial_set_trigger_external(gboolean active);
 void serial_set_channels(int channels);
 void serial_set_sequential_channel(gboolean isseq);
 void serial_set_pwm1(pwm1_config_t *config);

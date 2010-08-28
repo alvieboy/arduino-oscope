@@ -53,6 +53,7 @@
 
 #define FLAG_INVERT_TRIGGER  (1<<0)
 #define FLAG_CHANNEL_SEQUENTIAL  (1<<1)
+#define FLAG_TRIGGER_EXTERNAL  (1<<2)
 
 /* Captured frame flags */
 #define CAPTURED_FRAME_FLAG_AUTOTRIGGERED (1<<0)
@@ -66,7 +67,7 @@ typedef struct {
 	uint16_t numSamples;
 	uint8_t flags;
 	uint8_t channels;
-	uint16_t autotriggerSamples;
+	uint16_t autoTrigSamples;
 } __attribute__((packed)) parameters_t;
 
 typedef struct {
